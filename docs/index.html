@@ -192,7 +192,10 @@ python py/client.py https://api.example/api/polymarket-rewards
 <script>
 (() => {
   // --- config: `contract` is filled in after the mainnet deploy ---
-  const CFG = { chainId: 5042, rpc: "https://rpc.mainnet.arc.io", contract: "", resourceId: 1,
+  // `rpc` is what the wallet is told about; `readRpcs` are tried in order for this page's own reads
+  // (Circle's endpoint sits behind a bot check that rejects some browser fetches).
+  const CFG = { chainId: 5042, rpc: "https://rpc.mainnet.arc.io", readRpcs: ["https://arc.drpc.org", "https://rpc.mainnet.arc.io"],
+                contract: "", resourceId: 1,
                 repo: "https://github.com/argenestel/arc-paygate", explorer: "https://explorer.arc.io", payGas: 74000n };
   const ABI = [
     "function quote(uint256 id) view returns (uint96 price, uint32 window, address seller, bool active, string uri)",
@@ -206,8 +209,20 @@ python py/client.py https://api.example/api/polymarket-rewards
   const log = (m) => { $("log").textContent = `${new Date().toISOString().slice(11, 19)}  ${m}\n` + $("log").textContent; };
   const short = (a) => a ? a.slice(0, 6) + "…" + a.slice(-4) : "—";
   const fmt = (wei, d = 4) => Number(ethers.formatEther(wei)).toLocaleString(undefined, { maximumFractionDigits: d });
-  const rpc = new ethers.JsonRpcProvider(CFG.rpc, CFG.chainId, { staticNetwork: true });
+  let rpc = new ethers.JsonRpcProvider(CFG.readRpcs[0], CFG.chainId, { staticNetwork: true });
   let quote = null, signer = null, me = null, until = 0, cdTimer = null;
+
+  async function pickRpc() {
+    for (const url of CFG.readRpcs) {
+      try {
+        const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_chainId", params: [] }) });
+        const j = await r.json();
+        if (parseInt(j.result, 16) === CFG.chainId) { rpc = new ethers.JsonRpcProvider(url, CFG.chainId, { staticNetwork: true }); return url; }
+      } catch (e) { /* try the next one */ }
+    }
+    return null;
+  }
 
   $("repo").href = CFG.repo; $("explorer").href = CFG.explorer;
   if (CFG.contract) { $("addr").value = CFG.contract; $("deploystate").textContent = "mainnet"; $("deploystate").className = "pill ok"; }
@@ -304,8 +319,13 @@ python py/client.py https://api.example/api/polymarket-rewards
 
   $("load").onclick = read; $("connect").onclick = connect; $("pay").onclick = pay;
   $("addr").addEventListener("keydown", (e) => { if (e.key === "Enter") read(); });
-  chainTick(); setInterval(chainTick, 15000);
-  if (CFG.contract) read();
+  (async () => {
+    const url = await pickRpc();
+    if (!url) { $("block").textContent = "no reachable rpc"; return; }
+    $("chainlabel").textContent = `Arc · chain ${CFG.chainId} · ${new URL(url).host}`;
+    await chainTick(); setInterval(chainTick, 15000);
+    if (CFG.contract) read();
+  })();
 })();
 </script>
 </body>

@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PayGate on Arc</title>
+<meta name="description" content="Pay-per-call API access settled in Arc's native USDC. One balance, one transaction, no approve step.">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+  /* Layout: a terminal receipt. Left rail of numbers, one wide ledger column, every figure tabular. */
+  :root {
+    --bg: #f4f6f5; --bg-2: #e9eeec; --fg: #0e1a17; --muted: #5a6b66; --line: #cfd9d5; --panel: #ffffff;
+    --accent: #0a7f6e; --accent-2: #d9f1ec; --accent-fg: #ffffff;
+    --ok: #0a7f6e; --warn: #9a6200; --bad: #b4301d; --code: #10231f;
+    --sans: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --r: 10px; --shadow: 0 1px 2px rgba(14,26,23,.06), 0 8px 24px -12px rgba(14,26,23,.18);
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #0b1412; --bg-2: #101c19; --fg: #e8efec; --muted: #8fa39d; --line: #223430; --panel: #121f1b;
+    --accent: #3ad1b4; --accent-2: #0f2f29; --accent-fg: #06120f; --ok: #3ad1b4; --warn: #e4b23f; --bad: #ff8a70; --code: #0a1210;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6); color-scheme: dark; } }
+  :root[data-theme="dark"] {
+    --bg: #0b1412; --bg-2: #101c19; --fg: #e8efec; --muted: #8fa39d; --line: #223430; --panel: #121f1b;
+    --accent: #3ad1b4; --accent-2: #0f2f29; --accent-fg: #06120f; --ok: #3ad1b4; --warn: #e4b23f; --bad: #ff8a70; --code: #0a1210;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6); color-scheme: dark; }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 16px; line-height: 1.55;
+         padding-block: 0 72px; padding-inline: 16px; -webkit-font-smoothing: antialiased; }
+  a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: underline; }
+  code, .mono { font-family: var(--mono); font-size: 0.92em; }
+  .num { font-variant-numeric: tabular-nums; }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+
+  /* top bar */
+  .top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: color-mix(in oklab, var(--bg) 88%, transparent);
+         backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); margin-inline: -16px; padding-inline: 16px; }
+  .top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: -0.02em; font-size: 1.05rem; }
+  .brand svg { width: 26px; height: 26px; }
+  .chain { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 0.78rem; color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .dot.live { background: var(--ok); box-shadow: 0 0 0 4px color-mix(in oklab, var(--ok) 25%, transparent); }
+
+  /* hero */
+  .hero { display: grid; grid-template-columns: 1.3fr 1fr; gap: 32px; align-items: end; padding-block: 56px 32px; }
+  .eyebrow { font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  h1 { font-size: clamp(2rem, 4.5vw, 3.2rem); line-height: 1.05; margin: 10px 0 14px; letter-spacing: -0.03em; font-weight: 800; text-wrap: balance; }
+  .lede { color: var(--muted); font-size: 1.08rem; max-width: 56ch; margin: 0; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; box-shadow: var(--shadow); min-width: 0; }
+  .stat .k { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+  .stat .v { font-family: var(--mono); font-size: 1.25rem; font-weight: 600; margin-top: 4px; overflow-wrap: anywhere; }
+  .stat .s { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+
+  /* flow */
+  .flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; background: var(--panel); margin-block: 8px 36px; }
+  .step { padding: 16px; border-right: 1px solid var(--line); min-width: 0; position: relative; }
+  .step:last-child { border-right: 0; }
+  .step .n { font-family: var(--mono); color: var(--accent); font-size: 0.75rem; font-weight: 600; }
+  .step .t { font-weight: 700; margin: 4px 0 4px; letter-spacing: -0.01em; }
+  .step .d { color: var(--muted); font-size: 0.9rem; }
+  .step code { background: var(--bg-2); padding: 1px 6px; border-radius: 4px; font-size: 0.82em; }
+
+  /* grid of panels */
+  .grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 20px; align-items: start; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); min-width: 0; }
+  .panel > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+  .panel h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1em; margin: 0; color: var(--muted); font-weight: 700; }
+  .panel .body { padding: 18px; display: grid; gap: 14px; }
+  .field { display: flex; gap: 8px; flex-wrap: wrap; }
+  input[type=text] { flex: 1 1 240px; min-width: 0; font: inherit; font-family: var(--mono); font-size: 0.88rem; padding: 10px 12px; border: 1px solid var(--line);
+          border-radius: 8px; background: var(--bg); color: var(--fg); }
+  button { font: inherit; font-weight: 700; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-fg); cursor: pointer; }
+  button.quiet { background: transparent; color: var(--accent); }
+  button:disabled { opacity: .45; cursor: default; }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: no-preference) { button { transition: transform .08s ease, opacity .15s; } button:not(:disabled):active { transform: translateY(1px); } }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; margin: 0; }
+  dt { color: var(--muted); font-size: 0.9rem; } dd { margin: 0; font-family: var(--mono); font-size: 0.9rem; overflow-wrap: anywhere; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-family: var(--mono); font-size: 0.76rem; border: 1px solid var(--line); color: var(--muted); background: var(--bg); }
+  .pill.ok { color: var(--ok); border-color: color-mix(in oklab, var(--ok) 50%, var(--line)); background: var(--accent-2); }
+  .pill.warn { color: var(--warn); border-color: color-mix(in oklab, var(--warn) 50%, var(--line)); }
+  .pill.bad { color: var(--bad); border-color: color-mix(in oklab, var(--bad) 50%, var(--line)); }
+  .big { font-family: var(--mono); font-size: 1.6rem; font-weight: 600; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 0.9rem; }
+  .countdown { font-family: var(--mono); font-size: 0.9rem; color: var(--ok); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th { text-align: left; font-weight: 600; color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  td { padding: 9px 10px; border-bottom: 1px solid var(--line); font-family: var(--mono); white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  .tablewrap { overflow-x: auto; }
+  .empty { color: var(--muted); font-size: 0.9rem; padding: 6px 0; }
+  .log { font-family: var(--mono); font-size: 0.8rem; color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 180px; overflow-y: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+  .snippet { background: var(--code); color: #d7e6e1; border-radius: 8px; padding: 14px 16px; font-family: var(--mono); font-size: 0.8rem; overflow-x: auto; white-space: pre; line-height: 1.5; }
+  .snippet .c { color: #7fa39a; } .snippet .k { color: #8fe3cf; }
+  footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.88rem; display: flex; gap: 18px; flex-wrap: wrap; }
+
+  @media (max-width: 820px) {
+    .hero { grid-template-columns: 1fr; padding-block: 36px 24px; }
+    .flow { grid-template-columns: 1fr 1fr; } .step:nth-child(2) { border-right: 0; } .step:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+    .grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 480px) { .stats { grid-template-columns: 1fr; } .flow { grid-template-columns: 1fr; } .step { border-right: 0; border-bottom: 1px solid var(--line); } .step:last-child { border-bottom: 0; } }
+</style>
+</head>
+<body>
+<div class="top"><div class="wrap">
+  <div class="brand"><svg viewBox="0 0 26 26" fill="none" aria-hidden="true"><rect x="2" y="2" width="22" height="22" rx="6" stroke="currentColor" stroke-width="2"/><path d="M8 13h10M13 8v10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg> PayGate</div>
+  <div class="chain"><span class="dot" id="dot"></span><span id="chainlabel">Arc · chain 5042</span><span id="block">block —</span></div>
+</div></div>
+
+<main class="wrap">
+  <section class="hero">
+    <div>
+      <div class="eyebrow">Native USDC · Arc mainnet</div>
+      <h1>Pay-per-call APIs, priced in cents, settled in one transaction.</h1>
+      <p class="lede">PayGate is a paywall contract and an HTTP 402 server for humans and AI agents. On Arc the gas token is USDC, so a plain value transfer is a dollar payment: no approve step, no wrapped token, no second asset for gas.</p>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="k">Price per hour</div><div class="v num" id="s-price">—</div><div class="s">resource 1, demo screener</div></div>
+      <div class="stat"><div class="k">Gas per payment</div><div class="v num" id="s-gas">—</div><div class="s" id="s-gas-sub">at current base fee</div></div>
+      <div class="stat"><div class="k">Paid so far</div><div class="v num" id="s-paid">—</div><div class="s" id="s-paid-sub">payments on this contract</div></div>
+    </div>
+  </section>
+
+  <div class="flow" aria-label="How a request becomes a payment">
+    <div class="step"><div class="n">01 · request</div><div class="t">GET the resource</div><div class="d">The server answers <code>402</code> with chain, contract, resource id, price and a signing nonce.</div></div>
+    <div class="step"><div class="n">02 · verify</div><div class="t">Client checks the quote on-chain</div><div class="d">It re-reads <code>quote(id)</code> itself and refuses if the server's numbers differ. Spend is capped.</div></div>
+    <div class="step"><div class="n">03 · pay</div><div class="t">One transfer of native USDC</div><div class="d"><code>pay(id, minWindow)</code> with <code>value = price</code>. The contract reverts if the seller changed the deal.</div></div>
+    <div class="step"><div class="n">04 · fetch</div><div class="t">Sign, then read</div><div class="d">An EIP-191 signature bound to chain + contract + id proves the address; <code>hasAccess</code> gates the response.</div></div>
+  </div>
+
+  <div class="grid">
+    <section class="panel">
+      <header><h2>Contract</h2><span class="pill" id="deploystate">deployment pending</span></header>
+      <div class="body">
+        <div class="field"><input type="text" id="addr" placeholder="PayGate address on Arc (0x…)" spellcheck="false" autocomplete="off" aria-label="Contract address"><button class="quiet" id="load">Read contract</button></div>
+        <dl>
+          <dt>Resource</dt><dd id="uri">—</dd>
+          <dt>Price</dt><dd id="price">—</dd>
+          <dt>Access window</dt><dd id="window">—</dd>
+          <dt>Seller</dt><dd id="seller">—</dd>
+          <dt>Status</dt><dd id="active">—</dd>
+          <dt>Unclaimed</dt><dd id="bal">—</dd>
+          <dt>Explorer</dt><dd id="exp">—</dd>
+        </dl>
+        <div>
+          <h2 style="margin-bottom:8px">Recent payments</h2>
+          <div class="tablewrap"><table id="tbl"><thead><tr><th>Block</th><th>Payer</th><th>For</th><th>USDC</th><th>Access until</th></tr></thead><tbody id="rows"><tr><td colspan="5" class="empty">No contract loaded.</td></tr></tbody></table></div>
+        </div>
+      </div>
+    </section>
+
+    <div style="display:grid;gap:20px;min-width:0">
+      <section class="panel">
+        <header><h2>Buy access</h2><span class="pill" id="who">no wallet</span></header>
+        <div class="body">
+          <div><div class="big" id="buyprice">—</div><div class="sub">for one hour of the demo resource, paid in native USDC</div></div>
+          <div class="field"><button id="connect">Connect wallet</button><button id="pay" disabled>Pay for 1 hour</button></div>
+          <div><span class="pill" id="access">access: unknown</span> <span class="countdown" id="cd"></span></div>
+          <p class="sub" style="margin:0">Your wallet is asked to switch to Arc (chain 5042). The page never sees a private key; the transaction is built from the on-chain quote, not from this page's text.</p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <header><h2>From an agent</h2></header>
+        <div class="body">
+<div class="snippet"><span class="c"># python, with the reference client</span>
+<span class="k">EVM_PRIVATE_KEY</span>=0x… <span class="k">PAYGATE_ADDR</span>=0x… \
+python py/client.py https://api.example/api/polymarket-rewards
+
+<span class="c"># 402 → verify quote on-chain → pay(1, 3600) → sign → 200</span></div>
+          <div class="log" id="log">Waiting for a contract address.</div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <footer>
+    <a id="repo" href="#" target="_blank" rel="noopener">Source &amp; 402 server</a>
+    <a id="explorer" href="https://explorer.arc.io" target="_blank" rel="noopener">explorer.arc.io</a>
+    <a href="https://docs.arc.io" target="_blank" rel="noopener">Arc docs</a>
+    <span>MIT · PayGate</span>
+  </footer>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
+<script>
+(() => {
+  // --- config: `contract` is filled in after the mainnet deploy ---
+  const CFG = { chainId: 5042, rpc: "https://rpc.mainnet.arc.io", contract: "", resourceId: 1,
+                repo: "https://github.com/argenestel/arc-paygate", explorer: "https://explorer.arc.io", payGas: 74000n };
+  const ABI = [
+    "function quote(uint256 id) view returns (uint96 price, uint32 window, address seller, bool active, string uri)",
+    "function hasAccess(address who, uint256 id) view returns (bool)",
+    "function accessUntil(address who, uint256 id) view returns (uint64)",
+    "function balances(address) view returns (uint256)",
+    "function pay(uint256 id, uint32 minWindow) payable returns (uint64)",
+    "event Paid(uint256 indexed id, address indexed payer, address indexed beneficiary, uint256 amount, uint64 until)",
+  ];
+  const $ = (id) => document.getElementById(id);
+  const log = (m) => { $("log").textContent = `${new Date().toISOString().slice(11, 19)}  ${m}\n` + $("log").textContent; };
+  const short = (a) => a ? a.slice(0, 6) + "…" + a.slice(-4) : "—";
+  const fmt = (wei, d = 4) => Number(ethers.formatEther(wei)).toLocaleString(undefined, { maximumFractionDigits: d });
+  const rpc = new ethers.JsonRpcProvider(CFG.rpc, CFG.chainId, { staticNetwork: true });
+  let quote = null, signer = null, me = null, until = 0, cdTimer = null;
+
+  $("repo").href = CFG.repo; $("explorer").href = CFG.explorer;
+  if (CFG.contract) { $("addr").value = CFG.contract; $("deploystate").textContent = "mainnet"; $("deploystate").className = "pill ok"; }
+
+  async function chainTick() {
+    try {
+      const [bn, fee] = await Promise.all([rpc.getBlockNumber(), rpc.getFeeData()]);
+      $("block").textContent = `block ${bn.toLocaleString()}`; $("dot").className = "dot live";
+      const gp = fee.gasPrice ?? 20000000000n;
+      $("s-gas").textContent = `${fmt(gp * CFG.payGas, 5)} USDC`;
+      $("s-gas-sub").textContent = `${(Number(gp) / 1e9).toFixed(1)} gwei × ${CFG.payGas.toLocaleString()} gas`;
+    } catch (e) { $("dot").className = "dot"; $("block").textContent = "rpc unreachable"; }
+  }
+
+  async function read() {
+    const addr = $("addr").value.trim();
+    if (!ethers.isAddress(addr)) { log("That is not a valid address."); return; }
+    try {
+      const c = new ethers.Contract(addr, ABI, rpc);
+      const [price, window, seller, active, uri] = await c.quote(CFG.resourceId);
+      if (seller === ethers.ZeroAddress) { log(`No resource ${CFG.resourceId} at ${short(addr)}.`); return; }
+      quote = { addr, price, window: Number(window), seller, active, uri };
+      $("uri").textContent = uri || "(no uri)";
+      $("price").textContent = `${fmt(price)} USDC`; $("s-price").textContent = `${fmt(price)} USDC`; $("buyprice").textContent = `${fmt(price)} USDC`;
+      $("window").textContent = `${quote.window.toLocaleString()} s · ${(quote.window / 3600).toFixed(2)} h`;
+      $("seller").textContent = seller;
+      $("active").innerHTML = active ? '<span class="pill ok">active</span>' : '<span class="pill bad">paused</span>';
+      $("bal").textContent = `${fmt(await c.balances(seller))} USDC`;
+      $("exp").innerHTML = `<a href="${CFG.explorer}/address/${addr}" target="_blank" rel="noopener">${short(addr)}</a>`;
+      $("deploystate").textContent = "live"; $("deploystate").className = "pill ok";
+      log(`Read resource ${CFG.resourceId} at ${short(addr)}.`);
+      await payments(c);
+      if (me) await refreshAccess();
+      $("pay").disabled = !(signer && quote.active);
+    } catch (e) { log(`Read failed: ${e.shortMessage || e.message}`); }
+  }
+
+  async function payments(c) {
+    try {
+      const head = await rpc.getBlockNumber();
+      const logs = await c.queryFilter(c.filters.Paid(CFG.resourceId), Math.max(0, head - 200000), head);
+      const rows = logs.slice(-12).reverse();
+      $("s-paid").textContent = logs.length.toLocaleString();
+      $("s-paid-sub").textContent = `${fmt(logs.reduce((a, l) => a + l.args.amount, 0n))} USDC total`;
+      $("rows").innerHTML = rows.length ? rows.map((l) => `<tr><td>${l.blockNumber.toLocaleString()}</td><td><a href="${CFG.explorer}/tx/${l.transactionHash}" target="_blank" rel="noopener">${short(l.args.payer)}</a></td><td>${l.args.beneficiary === l.args.payer ? "self" : short(l.args.beneficiary)}</td><td>${fmt(l.args.amount)}</td><td>${new Date(Number(l.args.until) * 1000).toLocaleString()}</td></tr>`).join("")
+        : `<tr><td colspan="5" class="empty">No payments yet. Be the first.</td></tr>`;
+    } catch (e) { $("rows").innerHTML = `<tr><td colspan="5" class="empty">Could not load events: ${e.shortMessage || e.message}</td></tr>`; }
+  }
+
+  async function refreshAccess() {
+    const c = new ethers.Contract(quote.addr, ABI, rpc);
+    until = Number(await c.accessUntil(me, CFG.resourceId));
+    tick(); clearInterval(cdTimer); cdTimer = setInterval(tick, 1000);
+  }
+  function tick() {
+    const left = until - Math.floor(Date.now() / 1000);
+    if (left > 0) { $("access").className = "pill ok"; $("access").textContent = "access granted"; $("cd").textContent = `${Math.floor(left / 60)}m ${String(left % 60).padStart(2, "0")}s left`; }
+    else { $("access").className = "pill warn"; $("access").textContent = "no access"; $("cd").textContent = ""; }
+  }
+
+  async function connect() {
+    if (!window.ethereum) { log("No injected wallet found. Install MetaMask or Rabby, then add Arc (chain 5042)."); return; }
+    try {
+      const hex = "0x" + CFG.chainId.toString(16);
+      try { await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: hex }] }); }
+      catch (e) {
+        if (e.code === 4902) await window.ethereum.request({ method: "wallet_addEthereumChain", params: [{
+          chainId: hex, chainName: "Arc", rpcUrls: [CFG.rpc], blockExplorerUrls: [CFG.explorer],
+          nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 } }] });
+        else throw e;
+      }
+      const bp = new ethers.BrowserProvider(window.ethereum);
+      signer = await bp.getSigner(); me = await signer.getAddress();
+      $("who").textContent = short(me); $("who").className = "pill ok";
+      log(`Connected ${short(me)} on chain ${CFG.chainId}.`);
+      if (quote) { await refreshAccess(); $("pay").disabled = !quote.active; }
+    } catch (e) { log(`Connect failed: ${e.shortMessage || e.message}`); }
+  }
+
+  async function pay() {
+    if (!signer || !quote) return;
+    $("pay").disabled = true;
+    try {
+      const c = new ethers.Contract(quote.addr, ABI, signer);
+      log(`Sending pay(${CFG.resourceId}, ${quote.window}) with ${fmt(quote.price)} USDC…`);
+      const tx = await c.pay(CFG.resourceId, quote.window, { value: quote.price });
+      log(`Submitted ${tx.hash}. Waiting for inclusion…`);
+      const r = await tx.wait();
+      log(`Confirmed in block ${r.blockNumber}. Gas used ${r.gasUsed.toLocaleString()}.`);
+      await read(); await refreshAccess();
+    } catch (e) { log(`Payment failed: ${e.shortMessage || e.message}`); }
+    $("pay").disabled = !(signer && quote && quote.active);
+  }
+
+  $("load").onclick = read; $("connect").onclick = connect; $("pay").onclick = pay;
+  $("addr").addEventListener("keydown", (e) => { if (e.key === "Enter") read(); });
+  chainTick(); setInterval(chainTick, 15000);
+  if (CFG.contract) read();
+})();
+</script>
+</body>
+</html>

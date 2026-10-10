@@ -104,3 +104,7 @@ against a resource-id mix-up since ids are sequential), `PORT` (8402).
 ## License
 
 MIT — see `LICENSE`.
+
+## Web demo
+
+`docs/index.html` is a static page served at https://argenestel.github.io/arc-paygate/ . It reads the live contract (quote, seller balance, recent `Paid` events), shows gas per payment from the current base fee, and lets an injected wallet buy an hour of the demo resource on Arc.

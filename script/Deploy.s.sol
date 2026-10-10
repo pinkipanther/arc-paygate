@@ -10,7 +10,7 @@ contract Deploy is Script {
         vm.startBroadcast();
         PayGate gate = new PayGate();
         // Demo resource: Polymarket liquidity-reward screener, 0.01 USDC per hour of access.
-        uint256 id = gate.createResource(0.01 ether, 1 hours, "https://gitlab.com/arg.firefoz/streampay-dashboard/-/tree/arc-paygate");
+        uint256 id = gate.createResource(0.01 ether, 1 hours, "https://argenestel.github.io/arc-paygate/");
         vm.stopBroadcast();
         console.log("PayGate:", address(gate));
         console.log("demo resource id:", id);

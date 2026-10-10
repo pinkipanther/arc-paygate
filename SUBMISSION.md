@@ -4,9 +4,9 @@
 
 **One-liner:** Pay-per-call API access for humans and AI agents, settled in Arc's native USDC: one balance, one transaction, no approve step.
 
-**Live Arc mainnet deployment:** `https://explorer.arc.io/address/<PAYGATE_ADDRESS>` (contract). Web demo: `web/index.html` in the repo, a static page that reads the contract and lets a wallet buy access.
+**Live Arc mainnet deployment:** `https://explorer.arc.io/address/<PAYGATE_ADDRESS>` (contract) and `https://argenestel.github.io/arc-paygate/` (web demo: reads the contract, shows live payments, lets a wallet buy access).
 
-**Public repo:** `https://gitlab.com/arg.firefoz/streampay-dashboard/-/tree/arc-paygate`
+**Public repo:** `https://github.com/argenestel/arc-paygate`
 
 **What it does and how it uses Arc**
 
@@ -20,6 +20,6 @@ Buyer protections are on-chain: exact-amount enforcement, and a `minWindow` guar
 
 **Status:** 29 Foundry tests (fuzz, front-running, re-entrancy, overflow), an anvil-backed end-to-end suite that drives the real server and client through 402 → pay → 200 plus hostile-server cases, CI workflow, MIT license.
 
-**Builder profile:** `https://gitlab.com/arg.firefoz` (or X / Farcaster)
+**Builder profile:** `https://github.com/argenestel` (or X / Farcaster)
 
 **Not previously funded** by a Circle or Arc program. Not a design mockup; deployed and callable on Arc mainnet.

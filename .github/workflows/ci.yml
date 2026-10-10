@@ -1,0 +1,15 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { submodules: recursive }
+      - uses: foundry-rs/foundry-toolchain@v1
+      - run: forge build
+      - run: forge test -vv
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install web3 eth-account httpx
+      - run: cd py && python -m unittest -v test_e2e

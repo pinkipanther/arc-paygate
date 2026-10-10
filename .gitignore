@@ -1,0 +1,11 @@
+# foundry
+out/
+cache/
+broadcast/
+# python
+__pycache__/
+*.pyc
+.venv/
+# secrets / local
+.env
+.secrets

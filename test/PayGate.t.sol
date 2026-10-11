@@ -93,10 +93,12 @@ contract PayGateTest is Test {
         assertEq(until, block.timestamp + WINDOW);
         assertTrue(gate.hasAccess(buyer, 1));
         assertEq(gate.balances(seller), PRICE);
+        vm.warp(until - 1);
+        assertTrue(gate.hasAccess(buyer, 1)); // last second of the window
+        assertEq(gate.remaining(buyer, 1), 1);
         vm.warp(until);
-        assertTrue(gate.hasAccess(buyer, 1)); // inclusive expiry
-        vm.warp(until + 1);
-        assertFalse(gate.hasAccess(buyer, 1));
+        assertFalse(gate.hasAccess(buyer, 1)); // exactly WINDOW seconds, then closed
+        assertEq(gate.remaining(buyer, 1), 0);
     }
 
     function test_pay_stacks_windows() public {
@@ -228,7 +230,7 @@ contract PayGateTest is Test {
 
     function test_payFor_zero_beneficiary_reverts() public {
         vm.prank(buyer);
-        vm.expectRevert(PayGate.ZeroBeneficiary.selector);
+        vm.expectRevert(PayGate.ZeroAddress.selector);
         gate.payFor{value: PRICE}(1, address(0), WINDOW);
     }
 

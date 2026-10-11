@@ -1,0 +1,52 @@
+import { parseAbi } from "viem";
+
+/** Buyer, seller and read surface of PayGate v2. Errors are listed so viem can decode reverts. */
+export const payGateAbi = parseAbi([
+  "struct ResourceView { uint256 id; address seller; uint96 price; uint32 window; bool active; uint64 sales; uint128 revenue; string uri; }",
+  "function nextId() view returns (uint256)",
+  "function quote(uint256 id) view returns (uint96 price, uint32 window, address seller, bool active, string uri)",
+  "function getResource(uint256 id) view returns (ResourceView)",
+  "function getResources(uint256 fromId, uint256 limit) view returns (ResourceView[])",
+  "function hasAccess(address who, uint256 id) view returns (bool)",
+  "function accessUntil(address who, uint256 id) view returns (uint64)",
+  "function remaining(address who, uint256 id) view returns (uint256)",
+  "function balances(address seller) view returns (uint256)",
+  "function createResource(uint96 price, uint32 window, string uri) returns (uint256 id)",
+  "function updateResource(uint256 id, uint96 price, uint32 window, bool active, string uri)",
+  "function transferResource(uint256 id, address to)",
+  "function pay(uint256 id, uint32 minWindow) payable returns (uint64 until)",
+  "function payFor(uint256 id, address beneficiary, uint32 minWindow) payable returns (uint64 until)",
+  "function withdraw()",
+  "function withdrawTo(address to)",
+  "event ResourceCreated(uint256 indexed id, address indexed seller, uint96 price, uint32 window, string uri)",
+  "event ResourceUpdated(uint256 indexed id, uint96 price, uint32 window, bool active, string uri)",
+  "event ResourceTransferred(uint256 indexed id, address indexed from, address indexed to)",
+  "event Paid(uint256 indexed id, address indexed payer, address indexed beneficiary, uint256 amount, uint64 until)",
+  "event Withdrawn(address indexed seller, address indexed to, uint256 amount)",
+  "error NotSeller()",
+  "error Inactive()",
+  "error WrongAmount(uint256 expected, uint256 got)",
+  "error WindowTooShort(uint32 minWindow, uint32 actual)",
+  "error ZeroWindow()",
+  "error WindowTooLong(uint32 window)",
+  "error ZeroAddress()",
+  "error UriTooLong(uint256 length)",
+  "error PricePrecision(uint96 price)",
+  "error NothingToWithdraw()",
+  "error TransferFailed()",
+]);
+
+/** Plain-language explanations for contract errors, shown instead of selectors. */
+export const ERROR_TEXT: Record<string, string> = {
+  NotSeller: "Only the seller of this resource can do that.",
+  Inactive: "This resource is paused or does not exist, so it can't be bought right now.",
+  WrongAmount: "The price changed since this page loaded. Refresh and try again.",
+  WindowTooShort: "The seller shortened the access window since this page loaded. Refresh to see the new terms.",
+  ZeroWindow: "The access window must be at least one second.",
+  WindowTooLong: "The access window can be at most 365 days.",
+  ZeroAddress: "That address is empty. Enter a real recipient.",
+  UriTooLong: "The listing details are over 512 bytes. Shorten the name, description or URL.",
+  PricePrecision: "Prices can have at most 6 decimal places, like 0.000001 USDC.",
+  NothingToWithdraw: "There is nothing to withdraw yet.",
+  TransferFailed: "The receiving address rejected the USDC. Withdraw to a different address.",
+};

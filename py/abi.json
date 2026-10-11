@@ -27,6 +27,32 @@
  },
  {
   "type": "function",
+  "name": "MAX_WINDOW",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint32",
+    "internalType": "uint32"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "PRICE_UNIT",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
   "name": "accessUntil",
   "inputs": [
    {
@@ -626,6 +652,17 @@
  },
  {
   "type": "error",
+  "name": "PricePrecision",
+  "inputs": [
+   {
+    "name": "price",
+    "type": "uint96",
+    "internalType": "uint96"
+   }
+  ]
+ },
+ {
+  "type": "error",
   "name": "TransferFailed",
   "inputs": []
  },
@@ -637,6 +674,17 @@
     "name": "length",
     "type": "uint256",
     "internalType": "uint256"
+   }
+  ]
+ },
+ {
+  "type": "error",
+  "name": "WindowTooLong",
+  "inputs": [
+   {
+    "name": "window",
+    "type": "uint32",
+    "internalType": "uint32"
    }
   ]
  },

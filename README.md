@@ -1,110 +1,122 @@
-# PayGate — pay-per-call APIs settled in Arc's native USDC
+# PayGate
 
-**What it is.** A tiny paywall for HTTP resources where the buyer (a person or an AI agent) pays with a
-plain value transfer on [Arc](https://docs.arc.io) and the server checks access on-chain. Because Arc's
-gas token *is* USDC, there is no `approve` step, no wrapped token, and no separate gas asset: an agent
-holding a few cents of USDC can pay 0.01 USDC for an hour of API access in one transaction whose gas
-costs ~0.0015 USDC (≈74k gas at the 20 gwei floor).
+Sell access to an API by the hour, paid in native USDC on [Arc](https://docs.arc.io).
 
-**Why Arc.** On every other EVM chain an agent needs two assets (gas + stablecoin) and two transactions
-(approve + pay) before it can buy anything. On Arc it needs one balance and one call. PayGate is built
-around that property: `pay(id, minWindow)` is `payable`, the price is denominated in native USDC
-(18-dec wei), and sellers withdraw native USDC.
+A seller lists an endpoint with a price and an access window. A buyer, usually an AI agent, makes one
+`pay()` call and holds a time-boxed pass on-chain. The seller's server answers unpaid requests with
+HTTP 402 and serves paid ones after one view call, `hasAccess(buyer, id)`.
+
+- **Web app:** https://argenestel.github.io/arc-paygate/ (marketplace, buy flow, seller console, activity, integration guide)
+- **Contract:** `src/PayGate.sol`, no owner, no fees, no upgradeability
+- **402 server and agent client:** `py/`
+- **Audit:** [`AUDIT.md`](AUDIT.md) (contract) and [`py/SECURITY.md`](py/SECURITY.md) (server and client)
+
+## Why Arc
+
+Arc's gas token is USDC, so a plain value transfer is a dollar payment.
+
+| | Typical EVM chain | Arc with PayGate |
+|---|---|---|
+| Assets the buyer holds | a stablecoin plus ETH for gas | USDC only |
+| Transactions for a first purchase | `approve`, then transfer | one `pay()` |
+| Gas paid in | a volatile token | USDC |
+| Custody until withdrawal | often a facilitator | the contract |
+
+## What a pass is, and isn't
+
+A pass is an on-chain entitlement for `(address, resource)` that lasts a fixed window. It is
+**pay-per-access**, not pay-per-call: the seller's server decides how many calls a window allows.
+
+- Paying again while a pass is active extends it. Free (price 0) passes don't stack.
+- There are no refunds and no delivery guarantee. Serving the data is the seller's job.
+- Anyone holding the buyer's key can use the pass.
+- `sales` and `revenue` are recorded on-chain, but a seller can buy their own pass, so they show activity, not reputation.
 
 ## Contract
 
-`src/PayGate.sol` (Solidity 0.8.26, no dependencies, no owner, no upgradeability, no admin keys)
+`src/PayGate.sol`, Solidity 0.8.26, no dependencies.
 
 | Function | Who | Does |
 |---|---|---|
-| `createResource(price, window, uri)` | seller | registers a resource; `window` seconds of access per payment |
-| `updateResource(id, price, window, active, uri)` | seller | reprice / resize / pause; never revokes access already paid for |
-| `pay(id, minWindow)` payable | buyer | pays exactly `price`; reverts unless the window is still ≥ `minWindow`; access stacks on top of any remaining time |
-| `payFor(id, beneficiary, minWindow)` payable | anyone | fund another address's access (an operator topping up its agent's key) |
-| `hasAccess(who, id)` view | server | the only check a gated server needs |
-| `quote(id)` view | server | fields for a 402 response |
-| `withdraw()` | seller | pull accumulated USDC (checks-effects-interactions) |
+| `createResource(price, window, uri)` | seller | List a resource. Window 1 second to 365 days; price in 18-decimal native units, at most 6 decimals of USDC. |
+| `updateResource(id, price, window, active, uri)` | seller | Reprice, resize, pause or edit. Never revokes passes already sold. |
+| `transferResource(id, to)` | seller | Hand future sales to another address. Earned balance stays with the old seller. |
+| `pay(id, minWindow)` payable | buyer | Pay exactly `price`. Reverts if the window is now shorter than `minWindow`. |
+| `payFor(id, beneficiary, minWindow)` payable | anyone | Same, for another address (e.g. an agent's key). |
+| `withdraw()` / `withdrawTo(to)` | seller | Pull accumulated USDC. |
+| `hasAccess(who, id)` view | server | True while the pass is valid. Expiry is exclusive: a window of `w` grants exactly `w` seconds. |
+| `remaining(who, id)` view | anyone | Seconds left on a pass. |
+| `quote(id)` view | anyone | Price, window, seller, on-sale flag, uri. |
+| `getResource(id)`, `getResources(from, limit)` views | frontends | Full records including sales and revenue; page with `limit <= 25`. |
 
-Events: `ResourceCreated`, `ResourceUpdated`, `Paid`, `Withdrawn`.
+Events: `ResourceCreated`, `ResourceUpdated`, `ResourceTransferred`, `Paid`, `Withdrawn`.
 
-Buyer protections are enforced on-chain, so a seller cannot change the deal between the 402 and the
-payment: the amount must equal the current price exactly (`WrongAmount`), and the window must be at least
-what the buyer was quoted (`WindowTooShort`). Expiry is a `uint64` extended by a `uint32` window with
-checked arithmetic, so stacking cannot overflow at any realistic timestamp.
+**Buyer protection.** The amount must equal the current price (`WrongAmount`) and the window must be at
+least what the buyer was quoted (`WindowTooShort`), so a seller can't charge more or deliver less than
+the quote. A seller *can* change terms right before a purchase; the buyer's transaction then reverts
+and costs gas (about 61k gas, a fraction of a cent of USDC). A price cut also reverts; the buyer re-reads the quote and pays again.
 
-29 Foundry tests (`forge test`), including fuzz tests on exact-amount and min-window enforcement,
-seller front-running of price and window, re-entrant and reverting sellers on `withdraw`, and max-window
-stacking.
+**Listing metadata.** `uri` (max 512 bytes) is either a URL or a compact JSON object
+`{"name","desc","url","kind"}`. The web app writes the JSON form.
 
-## HTTP flow (x402-style)
+## HTTP flow
 
 ```
-GET /api/polymarket-rewards
-  -> 402 {"scheme":"paygate-native-v1","chain_id":5042,"contract":"0x..","resource_id":1,
-          "price_wei":"10000000000000000","price_usdc":"0.01","window_seconds":3600,
-          "pay_calldata":"0x..","auth":{"nonce":N,"message":"paygate:5042:0x<contract>:1:N"}}
-client: reads quote(1) from the contract, checks it against the 402, sends pay(1, 3600) with value=price
-client: signs "paygate:5042:0x<contract>:1:N" (EIP-191 personal_sign)
-GET /api/polymarket-rewards  X-PayGate-Address: 0x..  X-PayGate-Signature: 0x..
-  -> 200 {"access_until": 1760140000, "data": {...}}
+GET /api/data                               → 402 with chain, contract, resource id, price, window, nonce
+client reads quote(id) on-chain, checks it  → pay(id, window) with value = price      (one Arc tx)
+client signs paygate:2:<chain>:<contract>:<id>:<nonce>:<host>   (EIP-191)
+GET /api/data + X-PayGate-Address, X-PayGate-Signature           → 200
 ```
 
-The signature proves control of the paying address; the server never holds keys and never sees a
-payment off-chain. The signed message is bound to the chain id, contract address and resource id, so it
-cannot be replayed against a different PayGate deployment. `nonce = floor(unix/300)`: a signature is a
-bearer token for 5–10 minutes (the previous bucket is accepted to cover the boundary). Access is
-read-only, so a replayed signature can only re-read data the signer already paid for — but serve the
-API over TLS so signatures are not sniffable in the first place. Responses carry `Cache-Control: no-store`.
+The signed message is bound to the chain, contract, resource, a five-minute time bucket and the
+server's host, so a signature collected by one server can't be replayed at another. Within its bucket
+a signature works as a bearer credential; serve the API over TLS.
 
-**The client treats the 402 body as untrusted.** `py/client.py` only pays on its configured chain
-(`PAYGATE_CHAIN_ID`), optionally only to a pinned contract (`PAYGATE_ADDR`), re-reads the price and window
-from the contract and refuses if the server's numbers differ, builds the `pay` calldata locally (it never
-sends server-supplied calldata), caps spend with `PAYGATE_MAX_WEI` (default 0.1 USDC), and only signs the
-fixed-format `paygate:` message it reconstructs itself. A 401 or 5xx after signing never triggers a
-payment; only a 402 that reports "no active access" does.
+The 402 also carries an x402-shaped `accepts` envelope with the scheme name `exact-native`, so
+x402-aware agents can parse the offer. Payment is a native `pay()` call, not an EIP-3009
+authorization; this is not a registered x402 scheme.
 
-Demo resource: a live screener of Polymarket liquidity-reward pools (USDC/day, min size, spread band),
-i.e. a real dataset a trading agent would pay for.
+Servers publish a discovery document at `/.well-known/paygate.json` (chain, contract, message format,
+resources for sale). Browsers on the allowed origins (`PAYGATE_CORS_ORIGINS`) can call the API directly,
+which is how the web app's "Use your pass" panel works.
 
-## Run
+`PAYGATE_PUBLIC_HOST` is required in production: it is the host signatures must be bound to.
+Other settings (rate limits, connection caps, trusted proxies, JSON logs) are listed at the top of
+`py/server.py`.
+
+The reference client in `py/client.py` treats the 402 body as untrusted: it pins the contract,
+re-reads the terms on-chain, builds the transaction itself, caps spend and never signs server-supplied
+text. Details in [`py/SECURITY.md`](py/SECURITY.md).
+
+## Run it
 
 ```bash
-forge test
-# deploy (~0.97M gas ≈ 0.02 USDC at the 20 gwei floor)
-forge script script/Deploy.s.sol --rpc-url arc --broadcast --private-key $EVM_PRIVATE_KEY
-# serve (fails fast if the RPC chain id, contract code or demo resource don't check out)
-PAYGATE_ADDR=0x... python py/server.py
-# buy as an agent
-EVM_PRIVATE_KEY=0x... PAYGATE_ADDR=0x... python py/client.py http://localhost:8402/api/polymarket-rewards
-# end-to-end test of the 402 flow on a local anvil chain (needs `forge build` first)
-cd py && python -m unittest -v test_e2e
+forge test                                   # unit, fuzz and invariant tests
+cd py && python -m unittest -v test_e2e      # 402 → pay → 200 on a local anvil chain
+
+# deploy + demo listing (≈2.1M gas, about 0.04 USDC at Arc's 20 gwei floor)
+forge script script/Deploy.s.sol --rpc-url arc_testnet --broadcast --private-key $EVM_PRIVATE_KEY
+
+# serve (behind a TLS reverse proxy in production)
+PAYGATE_ADDR=0x… PAYGATE_PUBLIC_HOST=api.example.com PAYGATE_SELLER=0x… python py/server.py --json
+
+# buy as an agent (key from EVM_PRIVATE_KEY or --key-file, never an argument)
+python py/client.py discover https://api.example.com
+python py/client.py fetch https://api.example.com/api/polymarket-rewards --contract 0x… --max-usdc 0.05
+
+# web app
+cd app && npm install && npm run dev        # or `npm run build` to regenerate docs/
 ```
-
-Python deps: `web3>=7`, `eth-account`, `httpx`.
-
-Server env: `PAYGATE_ADDR` (required), `PAYGATE_RPC`, `PAYGATE_CHAIN_ID` (5042), `PAYGATE_DEMO_ID` (1),
-`PAYGATE_SELLER` (optional: refuse to start unless the demo resource belongs to this address — guards
-against a resource-id mix-up since ids are sequential), `PORT` (8402).
 
 ## Deployment
 
-| Network | Chain ID | RPC | PayGate | Demo resource |
-|---|---|---|---|---|
-| Arc mainnet | 5042 | `https://rpc.mainnet.arc.io` | _pending_ | id 1, 0.01 USDC / hour |
-| Arc testnet | 5042002 | `https://rpc.testnet.arc.io` | _pending_ | — |
+| Network | Chain ID | PayGate |
+|---|---|---|
+| Arc testnet | 5042002 | pending (faucet) |
+| Arc mainnet | 5042 | pending |
 
-## Notes
-
-- Native USDC on Arc has 18 decimals in `msg.value`; the ERC-20 view has 6. Prices here are in wei.
-- `window` stacking: paying while access is still valid extends from the current expiry, so prepaying is safe.
-- Pausing a resource (`active = false`) stops new sales; already-granted access keeps working until it expires.
-- Pull-pattern withdrawals; a seller whose receive hook reverts keeps their balance and can retry later.
-- Stray value transfers to the contract revert (no `receive`), so funds can only enter through `pay`/`payFor`.
+Addresses are set in `app/.env.production` and baked into the web app at build time.
 
 ## License
 
-MIT — see `LICENSE`.
-
-## Web demo
-
-`docs/index.html` is a static page served at https://argenestel.github.io/arc-paygate/ . It reads the live contract (quote, seller balance, recent `Paid` events), shows gas per payment from the current base fee, and lets an injected wallet buy an hour of the demo resource on Arc.
+MIT, see `LICENSE`.

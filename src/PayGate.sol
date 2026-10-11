@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity 0.8.26;
 
 /// @title PayGate — pay-per-access paywall settled in Arc's native USDC
 /// @notice Sellers register resources with a USDC price and an access window.
@@ -14,7 +14,7 @@ contract PayGate {
     struct Resource {
         address seller;   // receives payments (pull pattern)
         uint96 price;     // native wei (18-dec USDC); max ~7.9e10 USDC
-        uint32 window;    // seconds of access granted per payment (max ~136 years)
+        uint32 window;    // seconds of access granted per payment (1 .. MAX_WINDOW)
         bool active;      // new sales allowed
         uint64 sales;     // number of successful payments
         uint128 revenue;  // lifetime wei received for this resource
@@ -35,6 +35,12 @@ contract PayGate {
 
     uint256 public constant MAX_URI = 512;
     uint256 public constant MAX_PAGE = 100;
+    /// @notice Longest access window one payment can buy. Stops "1 wei for 136 years" typos.
+    uint32 public constant MAX_WINDOW = 365 days;
+    /// @notice Prices are whole micro-USDC: 1e-6 USDC = 1e12 native wei. This is the finest
+    ///         amount Arc's 6-decimal ERC-20 view of USDC can show, and it rejects a price that
+    ///         was written in 6-decimal units by mistake (10_000 meant as 0.01 USDC).
+    uint256 public constant PRICE_UNIT = 1e12;
 
     uint256 public nextId = 1;
     mapping(uint256 => Resource) internal _resources;
@@ -54,8 +60,10 @@ contract PayGate {
     error WrongAmount(uint256 expected, uint256 got);
     error WindowTooShort(uint32 minWindow, uint32 actual);
     error ZeroWindow();
+    error WindowTooLong(uint32 window);
     error ZeroAddress();
     error UriTooLong(uint256 length);
+    error PricePrecision(uint96 price);
     error NothingToWithdraw();
     error TransferFailed();
 
@@ -68,16 +76,19 @@ contract PayGate {
         if (_resources[id].seller != msg.sender) revert NotSeller();
     }
 
-    function _checkTerms(uint32 window, string calldata uri) internal pure {
+    function _checkTerms(uint96 price, uint32 window, string calldata uri) internal pure {
+        if (price % PRICE_UNIT != 0) revert PricePrecision(price);
         if (window == 0) revert ZeroWindow();
+        if (window > MAX_WINDOW) revert WindowTooLong(window);
         if (bytes(uri).length > MAX_URI) revert UriTooLong(bytes(uri).length);
     }
 
     // ------------------------------------------------------------------ sellers
 
-    /// @notice Register a resource. `price` may be 0 (free, still records access).
+    /// @notice Register a resource. `price` is in native wei (18 decimals) and must be a multiple
+    ///         of PRICE_UNIT. It may be 0: free, still records access, but free claims don't stack.
     function createResource(uint96 price, uint32 window, string calldata uri) external returns (uint256 id) {
-        _checkTerms(window, uri);
+        _checkTerms(price, window, uri);
         id = nextId++;
         Resource storage r = _resources[id];
         r.seller = msg.sender;
@@ -94,7 +105,7 @@ contract PayGate {
         external
         onlySeller(id)
     {
-        _checkTerms(window, uri);
+        _checkTerms(price, window, uri);
         Resource storage r = _resources[id];
         r.price = price;
         r.window = window;
@@ -103,7 +114,8 @@ contract PayGate {
         emit ResourceUpdated(id, price, window, active, uri);
     }
 
-    /// @notice Hand a resource (and its future revenue) to another address.
+    /// @notice Hand a resource (and its future revenue) to another address. Single-step: the
+    ///         new seller does not have to accept, so double-check `to`.
     ///         Revenue already earned stays withdrawable by the previous seller.
     function transferResource(uint256 id, address to) external onlySeller(id) {
         if (to == address(0)) revert ZeroAddress();
@@ -123,14 +135,16 @@ contract PayGate {
         _withdraw(to);
     }
 
-    /// @dev Checks-effects-interactions: a re-entrant call sees a zero balance and reverts.
+    /// @dev Checks-effects-interactions: the balance is zeroed and the event emitted before the
+    ///      call, so a re-entrant withdraw sees nothing to take, and a payment made from the
+    ///      receiver's hook is logged after this Withdrawn (replaying logs in order stays exact).
     function _withdraw(address payable to) internal {
         uint256 amt = balances[msg.sender];
         if (amt == 0) revert NothingToWithdraw();
         balances[msg.sender] = 0;
+        emit Withdrawn(msg.sender, to, amt);
         (bool ok,) = to.call{value: amt}("");
         if (!ok) revert TransferFailed();
-        emit Withdrawn(msg.sender, to, amt);
     }
 
     // ------------------------------------------------------------------ buyers
@@ -156,11 +170,19 @@ contract PayGate {
         uint32 window = r.window;
         if (window < minWindow) revert WindowTooShort(minWindow, window);
 
-        // Extend from the later of now / existing expiry so prepaying stacks windows.
-        // uint64 + uint32 is checked arithmetic; overflow needs ~4e9 stacked max-windows.
-        uint64 base = accessUntil[beneficiary][id];
-        if (base < block.timestamp) base = uint64(block.timestamp);
-        until = base + window;
+        uint64 prev = accessUntil[beneficiary][id];
+        uint64 start = uint64(block.timestamp);
+        if (msg.value == 0) {
+            // Free claims refresh instead of stacking, so nobody can stockpile years of access
+            // while a resource is free and keep it after the seller starts charging. They never
+            // shorten access already held.
+            until = start + window;
+            if (until < prev) until = prev;
+        } else {
+            // Paid access extends from the later of now / existing expiry, so prepaying stacks.
+            // uint64 + uint32 is checked; overflow needs ~5.8e11 stacked MAX_WINDOW purchases.
+            until = (prev > start ? prev : start) + window;
+        }
         accessUntil[beneficiary][id] = until;
 
         r.sales += 1;
@@ -199,11 +221,23 @@ contract PayGate {
     /// @notice Full record for one resource (seller == address(0) means it does not exist).
     function getResource(uint256 id) public view returns (ResourceView memory v) {
         Resource storage r = _resources[id];
-        v = ResourceView(id, r.seller, r.price, r.window, r.active, r.sales, r.revenue, r.uri);
+        v = ResourceView({
+            id: id,
+            seller: r.seller,
+            price: r.price,
+            window: r.window,
+            active: r.active,
+            sales: r.sales,
+            revenue: r.revenue,
+            uri: r.uri
+        });
     }
 
     /// @notice Page through resources in id order, starting at `fromId` (ids start at 1).
     ///         Returns at most min(limit, MAX_PAGE) entries; an empty array past the end.
+    /// @dev    Measured: a full page of 100 max-length (512-byte) URIs is ~83 KB of returndata
+    ///         and ~4.6M gas read cold, far below a 50M eth_call cap. Frontends should still page
+    ///         with limit <= 25 (~21 KB, ~1.1M gas) to stay inside public RPC response limits.
     function getResources(uint256 fromId, uint256 limit) external view returns (ResourceView[] memory out) {
         if (fromId == 0) fromId = 1;
         uint256 end = nextId;

@@ -6,34 +6,36 @@ import {PayGate} from "../src/PayGate.sol";
 
 /// @dev Seller that tries to re-enter `withdraw` from its receive hook.
 contract ReentrantSeller {
-    PayGate immutable gate;
+    PayGate immutable GATE;
     uint256 public entered;
 
-    constructor(PayGate g) { gate = g; }
+    constructor(PayGate g) { GATE = g; }
 
     function create(uint96 price, uint32 window) external returns (uint256) {
-        return gate.createResource(price, window, "evil");
+        return GATE.createResource(price, window, "evil");
     }
 
-    function withdraw() external { gate.withdraw(); }
+    function withdraw() external { GATE.withdraw(); }
 
     receive() external payable {
         entered++;
-        if (entered < 3) gate.withdraw(); // reverts NothingToWithdraw -> bubbles as TransferFailed
+        if (entered < 3) GATE.withdraw(); // reverts NothingToWithdraw -> bubbles as TransferFailed
     }
 }
 
 /// @dev Seller whose receive hook always reverts (e.g. a misconfigured multisig).
 contract RejectingSeller {
-    PayGate immutable gate;
+    PayGate immutable GATE;
 
-    constructor(PayGate g) { gate = g; }
+    constructor(PayGate g) { GATE = g; }
 
     function create(uint96 price, uint32 window) external returns (uint256) {
-        return gate.createResource(price, window, "reject");
+        return GATE.createResource(price, window, "reject");
     }
 
-    function withdraw() external { gate.withdraw(); }
+    function withdraw() external { GATE.withdraw(); }
+
+    function withdrawTo(address payable to) external { GATE.withdrawTo(to); }
 
     receive() external payable { revert("no"); }
 }
@@ -181,16 +183,17 @@ contract PayGateTest is Test {
     }
 
     /// uint64 expiry + uint32 window cannot overflow at realistic timestamps even with the
-    /// maximum window (~136 years) stacked repeatedly.
+    /// maximum window (365 days) stacked repeatedly.
     function test_pay_max_window_stacks_without_overflow() public {
+        uint32 maxWindow = gate.MAX_WINDOW();
         vm.prank(seller);
-        uint256 id = gate.createResource(0, type(uint32).max, "max");
+        uint256 id = gate.createResource(PRICE, maxWindow, "max");
         vm.warp(4_000_000_000); // year 2096
         vm.startPrank(buyer);
         uint64 until;
-        for (uint256 i = 0; i < 5; i++) until = gate.pay(id, type(uint32).max);
+        for (uint256 i = 0; i < 5; i++) until = gate.pay{value: PRICE}(id, maxWindow);
         vm.stopPrank();
-        assertEq(until, uint64(block.timestamp) + 5 * uint64(type(uint32).max));
+        assertEq(until, uint64(block.timestamp) + 5 * uint64(maxWindow));
         assertTrue(gate.hasAccess(buyer, id));
     }
 
@@ -304,6 +307,7 @@ contract PayGateTest is Test {
 
     function testFuzz_pay_exact_amount_only(uint96 price, uint256 sent) public {
         vm.assume(sent < 1 ether && price < 1 ether);
+        price -= uint96(price % gate.PRICE_UNIT());
         vm.prank(seller);
         uint256 id = gate.createResource(price, WINDOW, "f");
         vm.prank(buyer);
@@ -312,7 +316,7 @@ contract PayGateTest is Test {
     }
 
     function testFuzz_pay_minWindow_guard(uint32 window, uint32 minWindow) public {
-        vm.assume(window > 0);
+        window = uint32(bound(window, 1, gate.MAX_WINDOW()));
         vm.prank(seller);
         uint256 id = gate.createResource(PRICE, window, "f");
         vm.prank(buyer);

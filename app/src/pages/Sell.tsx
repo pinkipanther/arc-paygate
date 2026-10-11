@@ -171,9 +171,9 @@ function CreateForm() {
           <span className="muted" style={{ fontSize: "0.84rem" }}>
             You can reprice, pause or hand it to another address later.
           </span>
-          <button className="btn btn-primary" type="submit" disabled={busy || (!!wallet && !v.ok)}>
+          <button className="btn btn-primary" type="submit" disabled={!net.contract || busy || (!!wallet && !v.ok)}>
             {busy && <Spinner />}
-            {wallet ? "List resource" : "Connect wallet to list"}
+            {!net.contract ? "Not deployed on this network" : wallet ? "List resource" : "Connect wallet to list"}
           </button>
         </div>
       </form>
@@ -364,7 +364,10 @@ export function Sell() {
       </div>
 
       {!net.contract ? (
-        <NotDeployed />
+        <div className="stack" style={{ gap: 28 }}>
+          <NotDeployed />
+          <CreateForm />
+        </div>
       ) : (
         <div className="stack" style={{ gap: 28 }}>
           <div className="card">

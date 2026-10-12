@@ -4,7 +4,7 @@ import { Toasts } from "./components/Toasts";
 import { WalletModal } from "./components/WalletModal";
 import { Box } from "./components/icons";
 import { Empty } from "./components/ui";
-import { REPO } from "./config";
+import { NETWORKS, REPO } from "./config";
 import { useApp } from "./lib/store";
 import { Activity } from "./pages/Activity";
 import { Agents } from "./pages/Agents";
@@ -54,10 +54,26 @@ function route(h: string) {
 
 export function App() {
   const h = useHash();
-  const { net } = useApp();
+  const { net, setNet } = useApp();
+  const live = (["testnet", "mainnet"] as const).find((k) => NETWORKS[k].contract);
   return (
     <>
       <Header route={h} />
+      {net.simulated && (
+        <div className="demo-strip" role="note">
+          <div className="wrap">
+            <span className="tag">Demo</span>
+            <span className="grow">
+              <b>The audited PayGate contract, running in your browser.</b> Your demo wallet holds 25 test USDC: list, buy and use a pass. Nothing here touches Arc, and it resets on reload.
+            </span>
+            {live && (
+              <button type="button" onClick={() => setNet(live)}>
+                Use {NETWORKS[live].label} →
+              </button>
+            )}
+          </div>
+        </div>
+      )}
       <main key={net.key}>{route(h)}</main>
       <footer className="site">
         <div className="wrap spread">

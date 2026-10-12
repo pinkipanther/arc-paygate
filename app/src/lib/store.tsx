@@ -14,6 +14,7 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import { NETWORKS, DEFAULT_NET, NET_KEYS, type NetKey, type Network } from "../config";
 import { discoverWallets, rememberWallet, rememberedWallet, rememberNet, rememberedNet, type DiscoveredWallet } from "./wallet";
+import { demoRequest, demoSigner, demoVisitor, DEMO_CHAIN_ID } from "../demo";
 
 export interface Toast {
   id: number;
@@ -68,7 +69,18 @@ export function useApp(): Ctx {
 // anvil's first two dev keys; only used against a local chain in dev builds.
 const DEV_KEY = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d" as const;
 
+const DEMO_WALLET: Connected = {
+  address: demoVisitor.address,
+  chainId: DEMO_CHAIN_ID,
+  name: "Demo wallet",
+  icon: "",
+  rdns: "demo",
+  provider: null,
+  local: true,
+};
+
 function makePublic(net: Network): PublicClient {
+  if (net.simulated) return createPublicClient({ chain: net.chain, transport: custom({ request: demoRequest }), pollingInterval: 250 }) as PublicClient;
   return createPublicClient({
     chain: net.chain,
     transport: fallback(
@@ -88,7 +100,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const net = NETWORKS[netKey];
   const pub = useMemo(() => makePublic(net), [net]);
   const [wallets, setWallets] = useState<DiscoveredWallet[]>([]);
-  const [wallet, setWallet] = useState<Connected | null>(null);
+  // The wallet the visitor connected; on the Demo network an in-page wallet stands in for it.
+  const [extWallet, setWallet] = useState<Connected | null>(null);
+  const wallet = net.simulated ? DEMO_WALLET : extWallet;
   const [connecting, setConnecting] = useState(false);
   const [walletOpen, openWallet] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -162,9 +176,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   const disconnect = useCallback(() => {
+    if (net.simulated) return;
     setWallet(null);
     rememberWallet(null);
-  }, []);
+  }, [net.simulated]);
 
   // Silent reconnect to the last wallet (eth_accounts never prompts).
   useEffect(() => {
@@ -178,7 +193,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Follow account and chain changes in the extension.
   useEffect(() => {
-    const p = wallet?.provider as (EIP1193Provider & { removeListener?: (e: string, f: (...a: unknown[]) => void) => void }) | null;
+    const p = extWallet?.provider as (EIP1193Provider & { removeListener?: (e: string, f: (...a: unknown[]) => void) => void }) | null;
     if (!p) return;
     const onAccounts = (...a: unknown[]) => {
       const accs = a[0] as Address[];
@@ -192,9 +207,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       p.removeListener?.("accountsChanged", onAccounts);
       p.removeListener?.("chainChanged", onChain);
     };
-  }, [wallet?.provider]);
+  }, [extWallet?.provider]);
 
   const signer = useCallback(async (): Promise<WalletClient> => {
+    if (net.simulated) return demoSigner() as WalletClient;
     if (!wallet) {
       openWallet(true);
       throw new Error("Connect a wallet first.");

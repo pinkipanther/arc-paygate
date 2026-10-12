@@ -261,8 +261,10 @@ code,
     display: none;
   }
   .subnav a {
+    flex: 1 1 auto;
+    text-align: center;
     color: var(--muted);
-    padding: 6px 12px;
+    padding: 6px 10px;
     border-radius: 999px;
     border: 1px solid var(--line);
     font-weight: 550;
@@ -278,6 +280,19 @@ code,
 }
 
 /* network switch */
+@media (max-width: 520px) {
+  .netbtn-bal {
+    display: none;
+  }
+}
+@media (max-width: 400px) {
+  .brand-name {
+    display: none;
+  }
+  .top-actions .netbtn {
+    padding: 0 10px;
+  }
+}
 .netswitch {
   position: relative;
 }
@@ -840,6 +855,45 @@ main {
   flex-wrap: wrap;
 }
 
+/* demo strip: shown under the header on the in-browser Demo network */
+.demo-strip {
+  background: color-mix(in oklab, var(--usdc) 9%, var(--bg));
+  border-bottom: 1px solid color-mix(in oklab, var(--usdc) 22%, transparent);
+  font-size: 0.86rem;
+  color: var(--ink-2);
+}
+.demo-strip .wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px 14px;
+  flex-wrap: wrap;
+  padding-top: 9px;
+  padding-bottom: 9px;
+}
+.demo-strip b {
+  color: var(--ink);
+  font-weight: 650;
+}
+.demo-strip .tag {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--on-usdc);
+  background: var(--usdc);
+  border-radius: 6px;
+  padding: 2px 7px;
+}
+.demo-strip span.grow {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+.demo-strip button {
+  color: var(--usdc-ink);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 /* banner */
 .banner {
   display: flex;
@@ -1214,6 +1268,45 @@ main {
 }
 .compare tr:last-child td {
   border-bottom: 0;
+}
+
+@media (max-width: 600px) {
+  .compare thead {
+    display: none;
+  }
+  .compare tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px 16px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .compare tr:last-child {
+    border-bottom: 0;
+  }
+  .compare td {
+    padding: 0;
+    border: 0;
+  }
+  .compare td:first-child {
+    grid-column: 1 / -1;
+    width: auto;
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .compare td.arc {
+    color: var(--usdc-ink);
+  }
+  .compare td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 2px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
 }
 
 /* ------------------------------------------------------------------ tables & lists */

@@ -174,23 +174,23 @@ export function Home() {
               <tbody>
                 <tr>
                   <td>Assets the buyer must hold</td>
-                  <td>A stablecoin, plus ETH for gas</td>
-                  <td className="arc">USDC only</td>
+                  <td data-label="Typical EVM chain">A stablecoin, plus ETH for gas</td>
+                  <td className="arc" data-label="Arc with PayGate">USDC only</td>
                 </tr>
                 <tr>
                   <td>Transactions per first purchase</td>
-                  <td>approve, then transfer</td>
-                  <td className="arc">One pay() call</td>
+                  <td data-label="Typical EVM chain">approve, then transfer</td>
+                  <td className="arc" data-label="Arc with PayGate">One pay() call</td>
                 </tr>
                 <tr>
                   <td>Gas paid in</td>
-                  <td>A volatile token</td>
-                  <td className="arc">USDC, a fraction of a cent per pass</td>
+                  <td data-label="Typical EVM chain">A volatile token</td>
+                  <td className="arc" data-label="Arc with PayGate">USDC, a fraction of a cent per pass</td>
                 </tr>
                 <tr>
                   <td>Who holds the money</td>
-                  <td>Often a facilitator or custodian</td>
-                  <td className="arc">The contract, until the seller withdraws</td>
+                  <td data-label="Typical EVM chain">Often a facilitator or custodian</td>
+                  <td className="arc" data-label="Arc with PayGate">The contract, until the seller withdraws</td>
                 </tr>
               </tbody>
             </table>
@@ -215,7 +215,7 @@ export function Home() {
               {
                 key: "py",
                 label: "Python",
-                plain: `pip install web3 eth-account httpx\nexport EVM_PRIVATE_KEY=0x…\npython py/client.py fetch \\\n  https://api.example.com/api/data \\\n  --contract ${net.contract ?? "0x…"} \\\n  --max-usdc 0.05`,
+                plain: `pip install web3 eth-account httpx\nexport EVM_PRIVATE_KEY=0x…\npython py/client.py fetch \\\n  https://api.example.com/api/data \\\n  --contract ${(!net.simulated && net.contract) || "0x…"} \\\n  --max-usdc 0.05`,
                 rich: (
                   <>
                     <span className="c">{"# pip install web3 eth-account httpx\n"}</span>
@@ -224,7 +224,7 @@ export function Home() {
                     {"python py/client.py "}
                     <span className="k">fetch</span>
                     {" \\\n  https://api.example.com/api/data \\\n  --contract "}
-                    <span className="s">{net.contract ?? "0x…"}</span>
+                    <span className="s">{(!net.simulated && net.contract) || "0x…"}</span>
                     {" \\\n  --max-usdc "}
                     <span className="w">0.05</span>
                   </>

@@ -155,6 +155,11 @@ export function ResourcePage({ id }: { id: bigint }) {
                   },
                 ]}
               />
+              {net.simulated && (
+                <p className="muted" style={{ fontSize: "0.82rem", marginTop: 10 }}>
+                  The demo contract only exists in this tab. Point the client at the PayGate address on Arc for real purchases.
+                </p>
+              )}
             </div>
           </div>
         </div>

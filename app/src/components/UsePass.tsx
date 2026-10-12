@@ -4,13 +4,9 @@ import { useNow, type Resource } from "../lib/hooks";
 import { explain } from "../lib/tx";
 import { CopyButton, Spinner } from "./ui";
 import { Lock } from "./icons";
+import { authMessage, NONCE_PERIOD } from "../lib/auth";
+import { demoFetch } from "../demo/server";
 
-const NONCE_PERIOD = 300;
-
-/** Must match py/server.py exactly; see /.well-known/paygate.json → message_format. */
-export function authMessage(chainId: number, contract: string, rid: bigint, nonce: number, host: string): string {
-  return `paygate:2:${chainId}:${contract.toLowerCase()}:${rid}:${nonce}:${host.toLowerCase()}`;
-}
 
 interface Signed {
   address: string;
@@ -28,7 +24,7 @@ interface Result {
 
 /** Proves the pass to the seller's server: sign the PayGate message, then call the endpoint with it. */
 export function UsePass({ r, held }: { r: Resource; held: boolean }) {
-  const { wallet, net, signer, openWallet } = useApp();
+  const { wallet, net, pub, signer, openWallet } = useApp();
   const now = useNow();
   const [signed, setSigned] = useState<Signed | null>(null);
   const [busy, setBusy] = useState<"sign" | "send" | null>(null);
@@ -79,11 +75,12 @@ export function UsePass({ r, held }: { r: Resource; held: boolean }) {
     setErr(null);
     const t0 = performance.now();
     try {
-      const resp = await fetch(signed.url, {
-        headers: { "X-PayGate-Address": signed.address, "X-PayGate-Signature": signed.signature },
-        cache: "no-store",
-      });
-      let body = await resp.text();
+      const headers = { "X-PayGate-Address": signed.address, "X-PayGate-Signature": signed.signature };
+      // On the Demo network the seller's server runs in the page too (src/demo/server.ts).
+      const resp = net.simulated
+        ? await demoFetch(pub, signed.url, headers)
+        : await fetch(signed.url, { headers, cache: "no-store" }).then(async (x) => ({ status: x.status, body: await x.text() }));
+      let body = resp.body;
       try {
         body = JSON.stringify(JSON.parse(body), null, 2);
       } catch {

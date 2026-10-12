@@ -1,6 +1,7 @@
 import { defineChain, type Address, type Chain } from "viem";
+import { demoChain, DEMO_CONTRACT } from "./demo";
 
-export type NetKey = "testnet" | "mainnet" | "local";
+export type NetKey = "testnet" | "mainnet" | "demo" | "local";
 
 export interface Network {
   key: NetKey;
@@ -17,6 +18,8 @@ export interface Network {
   contract: Address | null;
   /** First block worth scanning for events (the deployment block). */
   deployBlock: bigint;
+  /** Runs in the page (see src/demo): real contract bytecode, simulated chain, no wallet needed. */
+  simulated?: boolean;
 }
 
 const usdc = { name: "USDC", symbol: "USDC", decimals: 18 } as const;
@@ -73,6 +76,19 @@ export const NETWORKS: Record<NetKey, Network> = {
     contract: addr(import.meta.env.VITE_MAINNET_PAYGATE) ?? null,
     deployBlock: BigInt(import.meta.env.VITE_MAINNET_DEPLOY_BLOCK ?? "0"),
   },
+  demo: {
+    key: "demo",
+    label: "Arc Demo",
+    short: "Demo",
+    chain: demoChain,
+    reads: [],
+    walletRpc: "",
+    explorer: null,
+    faucet: null,
+    contract: DEMO_CONTRACT,
+    deployBlock: 0n,
+    simulated: true,
+  },
   local: {
     key: "local",
     label: "Local Anvil",
@@ -88,12 +104,14 @@ export const NETWORKS: Record<NetKey, Network> = {
 };
 
 /** Networks offered in the switcher. The local chain only exists in dev builds. */
-export const NET_KEYS: NetKey[] = import.meta.env.DEV && NETWORKS.local.contract ? ["testnet", "mainnet", "local"] : ["testnet", "mainnet"];
+export const NET_KEYS: NetKey[] = import.meta.env.DEV && NETWORKS.local.contract ? ["testnet", "mainnet", "demo", "local"] : ["testnet", "mainnet", "demo"];
 
+/** Open on a live Arc deployment when there is one; otherwise on the in-browser demo. */
 export const DEFAULT_NET: NetKey = (() => {
   if (import.meta.env.DEV && NETWORKS.local.contract) return "local";
-  if (NETWORKS.mainnet.contract && !NETWORKS.testnet.contract) return "mainnet";
-  return "testnet";
+  if (NETWORKS.testnet.contract) return "testnet";
+  if (NETWORKS.mainnet.contract) return "mainnet";
+  return "demo";
 })();
 
 export const REPO = "https://github.com/pinkipanther/arc-paygate";

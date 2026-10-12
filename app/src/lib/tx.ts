@@ -52,10 +52,10 @@ export function useTx() {
           account,
         } as never);
         onStage?.("sign");
-        updateToast(id, { body: wallet?.local ? "Signing with the dev account…" : `Confirm in ${wallet?.name ?? "your wallet"}` });
+        updateToast(id, { body: net.simulated ? "Signing with the demo wallet…" : wallet?.local ? "Signing with the dev account…" : `Confirm in ${wallet?.name ?? "your wallet"}` });
         const hash = await wc.writeContract(request as never);
         onStage?.("settle", hash);
-        updateToast(id, { body: "Settling on Arc…", href: net.explorer ? `${net.explorer}/tx/${hash}` : undefined });
+        updateToast(id, { body: net.simulated ? "Mining on the demo chain…" : "Settling on Arc…", href: net.explorer ? `${net.explorer}/tx/${hash}` : undefined });
         const receipt = await pub.waitForTransactionReceipt({ hash, timeout: 90_000 });
         if (receipt.status !== "success") throw new Error("The transaction reverted on-chain.");
         onStage?.("done", hash);

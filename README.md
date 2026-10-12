@@ -7,6 +7,9 @@ A seller lists an endpoint with a price and an access window. A buyer, usually a
 HTTP 402 and serves paid ones after one view call, `hasAccess(buyer, id)`.
 
 - **Web app:** https://arc-paygate.vercel.app (marketplace, buy flow, seller console, activity, integration guide)
+- **Try it without a wallet:** the app's *Demo* network runs the audited contract bytecode in an in-browser EVM
+  (`app/src/demo`), seeded with listings and a funded throwaway wallet, so you can list, pay, sign and get a 200 in a minute.
+  Nothing touches Arc; it resets on reload.
 - **Contract:** `src/PayGate.sol`, no owner, no fees, no upgradeability
 - **402 server and agent client:** `py/`
 - **Audit:** [`AUDIT.md`](AUDIT.md) (contract) and [`py/SECURITY.md`](py/SECURITY.md) (server and client)

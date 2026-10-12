@@ -5,12 +5,12 @@ import { useChainInfo, useWalletBalance } from "../lib/hooks";
 import { useApp } from "../lib/store";
 import { Chevron, Logo, Wallet } from "./icons";
 
-export const NAV: [string, string][] = [
-  ["#/", "Overview"],
-  ["#/market", "Marketplace"],
-  ["#/sell", "Sell"],
-  ["#/activity", "Activity"],
-  ["#/agents", "For agents"],
+export const NAV: [string, string, string][] = [
+  ["#/", "Overview", "Home"],
+  ["#/market", "Marketplace", "Market"],
+  ["#/sell", "Sell", "Sell"],
+  ["#/activity", "Activity", "Activity"],
+  ["#/agents", "For agents", "Agents"],
 ];
 
 function isCurrent(href: string, route: string) {
@@ -55,9 +55,9 @@ function NetworkSwitch() {
                 <span className={`dot ${n.contract ? "ok" : ""}`} />
                 <span>
                   <div style={{ fontWeight: 600 }}>{n.label}</div>
-                  <small>chain {n.chain.id}</small>
+                  <small>{n.simulated ? "no wallet needed" : `chain ${n.chain.id}`}</small>
                 </span>
-                <small>{n.contract ? "live" : "not deployed"}</small>
+                <small>{n.simulated ? "in-browser" : n.contract ? "live" : "not deployed"}</small>
               </button>
             );
           })}
@@ -82,7 +82,7 @@ function NetworkSwitch() {
 }
 
 function WalletButton() {
-  const { wallet, openWallet, disconnect } = useApp();
+  const { wallet, net, openWallet, disconnect } = useApp();
   const bal = useWalletBalance(wallet?.address);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -107,7 +107,7 @@ function WalletButton() {
           {short(wallet.address, 5, 4)}
         </span>
         {bal !== null && (
-          <span className="muted mono" style={{ fontSize: "0.8rem" }}>
+          <span className="muted mono netbtn-bal" style={{ fontSize: "0.8rem" }}>
             {usdc(bal, 2)}
           </span>
         )}
@@ -123,16 +123,22 @@ function WalletButton() {
               <span className="mono">{bal === null ? "…" : usdc(bal)}</span> <span className="muted">USDC</span>
             </div>
           </div>
-          <button
-            role="menuitem"
-            onClick={() => {
-              disconnect();
-              setOpen(false);
-            }}
-            style={{ gridTemplateColumns: "1fr" }}
-          >
-            Disconnect
-          </button>
+          {net.simulated ? (
+            <div style={{ padding: "8px 10px 6px", fontSize: "0.78rem", color: "var(--muted)", borderTop: "1px solid var(--line)" }}>
+              A throwaway key that lives in this tab, funded with demo USDC. It resets when you reload. Switch network to use your own wallet on Arc.
+            </div>
+          ) : (
+            <button
+              role="menuitem"
+              onClick={() => {
+                disconnect();
+                setOpen(false);
+              }}
+              style={{ gridTemplateColumns: "1fr" }}
+            >
+              Disconnect
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -148,7 +154,7 @@ export function Header({ route }: { route: string }) {
             <span className="brand-mark">
               <Logo />
             </span>
-            PayGate
+            <span className="brand-name">PayGate</span>
           </a>
           <nav className="nav" aria-label="Main">
             {NAV.map(([href, label]) => (
@@ -163,7 +169,7 @@ export function Header({ route }: { route: string }) {
           </div>
         </div>
         <nav className="subnav" aria-label="Main (compact)">
-          {NAV.map(([href, label]) => (
+          {NAV.map(([href, , label]) => (
             <a key={href} href={href} aria-current={isCurrent(href, route) ? "page" : undefined}>
               {label}
             </a>

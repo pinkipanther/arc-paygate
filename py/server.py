@@ -30,7 +30,7 @@ Env:  PAYGATE_ADDR (required), PAYGATE_RPC, PAYGATE_CHAIN_ID (5042), PAYGATE_DEM
       PAYGATE_PUBLIC_HOST (host[:port] or https://host[:port] that clients use; required in production),
       PAYGATE_SELLER (refuse to start, and stop selling, unless resources belong to this address),
       PORT (8402), PAYGATE_HOST (bind, 0.0.0.0), PAYGATE_LOG_JSON (0), PAYGATE_CORS_ORIGINS
-      (https://argenestel.github.io), PAYGATE_TRUSTED_PROXIES (IPs whose X-Forwarded-For is
+      (https://arc-paygate.vercel.app), PAYGATE_TRUSTED_PROXIES (IPs whose X-Forwarded-For is
       believed), PAYGATE_RATE (2 req/s per IP), PAYGATE_BURST (30), PAYGATE_MAX_CONNS (64),
       PAYGATE_MAX_CONNS_PER_IP (8), PAYGATE_BLOCK_TAG (latest), PAYGATE_DATA_TTL (30 s)
 """
@@ -75,7 +75,7 @@ MESSAGE_FORMAT = "paygate:2:<chain_id>:<contract_lowercase>:<resource_id>:<nonce
 NONCE_FORMAT = "floor(unix_seconds / 300)"
 HOST_FORMAT = "lowercase host of the URL the client requested, plus :port if not the scheme default"
 PAY_SIGNATURE = "pay(uint256,uint32)"
-DEFAULT_CORS_ORIGINS = ("https://argenestel.github.io",)
+DEFAULT_CORS_ORIGINS = ("https://arc-paygate.vercel.app",)
 MAX_PAYMENT_HEADER = 2048
 
 with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "abi.json")) as f:

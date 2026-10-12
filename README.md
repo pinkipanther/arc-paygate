@@ -6,7 +6,7 @@ A seller lists an endpoint with a price and an access window. A buyer, usually a
 `pay()` call and holds a time-boxed pass on-chain. The seller's server answers unpaid requests with
 HTTP 402 and serves paid ones after one view call, `hasAccess(buyer, id)`.
 
-- **Web app:** https://argenestel.github.io/arc-paygate/ (marketplace, buy flow, seller console, activity, integration guide)
+- **Web app:** https://arc-paygate.vercel.app (marketplace, buy flow, seller console, activity, integration guide)
 - **Contract:** `src/PayGate.sol`, no owner, no fees, no upgradeability
 - **402 server and agent client:** `py/`
 - **Audit:** [`AUDIT.md`](AUDIT.md) (contract) and [`py/SECURITY.md`](py/SECURITY.md) (server and client)
@@ -107,6 +107,9 @@ python py/client.py fetch https://api.example.com/api/polymarket-rewards --contr
 # web app
 cd app && npm install && npm run dev        # or `npm run build` to regenerate docs/
 ```
+
+The web app is hosted on Vercel from this repo: `vercel.json` runs `npm ci && npm run build` in `app/`
+and serves `docs/`. Every push to `main` redeploys https://arc-paygate.vercel.app.
 
 ## Deployment
 

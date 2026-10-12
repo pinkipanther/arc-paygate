@@ -96,5 +96,5 @@ export const DEFAULT_NET: NetKey = (() => {
   return "testnet";
 })();
 
-export const REPO = "https://github.com/argenestel/arc-paygate";
+export const REPO = "https://github.com/pinkipanther/arc-paygate";
 export const MAX_URI = 512;

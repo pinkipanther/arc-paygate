@@ -8,9 +8,9 @@ Fill the two `<…>` fields after the mainnet deploy. Rules require a live mainn
 
 **Live Arc mainnet deployment:** `https://explorer.arc.io/address/<PAYGATE_MAINNET_ADDRESS>`
 
-**Web app:** https://argenestel.github.io/arc-paygate/ — marketplace, buy flow with a live access pass, seller console (list, reprice, pause, transfer, withdraw), on-chain activity feed and an integration guide.
+**Web app:** https://arc-paygate.vercel.app — marketplace, buy flow with a live access pass, seller console (list, reprice, pause, transfer, withdraw), on-chain activity feed and an integration guide.
 
-**Public repo:** https://github.com/argenestel/arc-paygate
+**Public repo:** https://github.com/pinkipanther/arc-paygate
 
 **What it does and how it uses Arc**
 
@@ -20,6 +20,6 @@ This design depends on Arc. Elsewhere an agent needs two assets (gas plus a stab
 
 **Safety work:** independent contract reviews (lead audit with invariant tests, plus a second independent review), a server and client security review, and an adversarial protocol review. Findings and their status are in `AUDIT.md` and `py/SECURITY.md`. The contract has no owner, no fees and no upgrade path.
 
-**Builder profile:** https://github.com/argenestel
+**Builder profile:** https://github.com/pinkipanther
 
 **Not previously funded** by a Circle or Arc program.

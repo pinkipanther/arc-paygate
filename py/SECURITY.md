@@ -81,7 +81,7 @@ never built from an arbitrary `Host` header. Resources that do not exist on-chai
 The document is untrusted input for buyers: `client.py discover` rebuilds URLs from the base URL
 it was given plus a validated path, and `quote`/`fetch` check everything on-chain.
 
-**CORS** (allow-list, default `https://argenestel.github.io`, set with `PAYGATE_CORS_ORIGINS`):
+**CORS** (allow-list, default `https://arc-paygate.vercel.app`, set with `PAYGATE_CORS_ORIGINS`):
 
 | Response | Headers |
 |---|---|

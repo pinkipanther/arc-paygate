@@ -9,3 +9,5 @@ __pycache__/
 # secrets / local
 .env
 .secrets
+.vercel
+.env*.local

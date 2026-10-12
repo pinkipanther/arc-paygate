@@ -37,7 +37,7 @@ CHAIN = 31337
 PRICE = 10**16  # 0.01 "USDC"
 WINDOW = 3600
 SHORT_WINDOW = 120
-ORIGIN = "https://argenestel.github.io"
+ORIGIN = "https://arc-paygate.vercel.app"
 STUB = {"pools": [{"condition_id": "0xabc"}]}
 NATIVE = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
 
@@ -573,7 +573,7 @@ class E2E(unittest.TestCase):
         self.assertEqual(r.headers["Access-Control-Max-Age"], "600")
         self.assertEqual(r.headers["Vary"], "Origin, Access-Control-Request-Method, Access-Control-Request-Headers")
         self.assertNotIn("access-control-allow-credentials", r.headers)
-        for origin in ("https://evil.example", "null", "https://argenestel.github.io.evil.example", None):
+        for origin in ("https://evil.example", "null", "https://arc-paygate.vercel.app.evil.example", None):
             h = {**pre, "Origin": origin} if origin else {k: v for k, v in pre.items() if k != "Origin"}
             r = httpx.options(self.url(), headers=h)
             self.assertEqual(r.status_code, 403, origin)

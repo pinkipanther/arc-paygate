@@ -1,16 +1,23 @@
 import { useState } from "react";
 import { getAddress, type Address } from "viem";
+import { AnimatePresence, motion } from "motion/react";
+import { Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ShineBorder } from "@/components/ui/shine-border";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import { duration, isAddress, usdc } from "../lib/format";
 import { useWalletBalance, type Resource } from "../lib/hooks";
 import { useApp } from "../lib/store";
 import { useTx, type Stage } from "../lib/tx";
-import { Spinner } from "./ui";
+import { Eyebrow, Spinner } from "./common";
 
 const PAY_GAS = 80_000n;
 const STEPS: [Stage, string][] = [
-  ["check", "Check the terms on-chain"],
-  ["sign", "Approve in your wallet"],
-  ["settle", "Settle on Arc"],
+  ["check", "Check terms"],
+  ["sign", "Sign"],
+  ["settle", "Settle"],
   ["done", "Pass issued"],
 ];
 
@@ -36,12 +43,12 @@ export function BuyPanel({ r, held, onBought }: { r: Resource; held: boolean; on
       const minWindow = r.window;
       if (forOther) {
         await tx(
-          { label: `Buy a pass for ${getAddress(other).slice(0, 8)}…`, functionName: "payFor", args: [r.id, getAddress(other) as Address, minWindow], value: r.price, success: () => "The pass is in their wallet's name now." },
+          { label: `Pass for ${getAddress(other).slice(0, 8)}…`, functionName: "payFor", args: [r.id, getAddress(other) as Address, minWindow], value: r.price, success: () => "The pass is in their name." },
           setStage,
         );
       } else {
         await tx(
-          { label: held ? "Extend your pass" : `Buy ${r.meta.name}`, functionName: "pay", args: [r.id, minWindow], value: r.price, success: () => (held && !free ? "Your pass now runs longer." : "Your pass is active.") },
+          { label: held ? "Extend your pass" : `Buy ${r.meta.name}`, functionName: "pay", args: [r.id, minWindow], value: r.price, success: () => (held && !free ? "Your pass runs longer now." : "Your pass is active.") },
           setStage,
         );
       }
@@ -55,104 +62,102 @@ export function BuyPanel({ r, held, onBought }: { r: Resource; held: boolean; on
   }
 
   const label = !wallet
-    ? "Connect wallet to buy"
+    ? "Connect wallet"
     : !r.active
       ? "Not on sale"
       : free
         ? forOther
-          ? "Claim a free pass for them"
+          ? "Claim for them"
           : held
             ? "Renew free pass"
             : "Claim free pass"
         : forOther
           ? `Pay ${usdc(r.price)} USDC for them`
           : held
-            ? `Extend for ${usdc(r.price)} USDC`
+            ? `Extend · ${usdc(r.price)} USDC`
             : `Pay ${usdc(r.price)} USDC`;
 
   return (
-    <div className="card">
-      <div className="card-b stack" style={{ gap: 18 }}>
-        <div>
-          <div className="eyebrow">{held ? "Extend your pass" : "Buy a pass"}</div>
-          <div className="price-big" style={{ marginTop: 6 }}>
-            <span className="amt num">{usdc(r.price)}</span>
-            <span className="unit">USDC</span>
-            <span className="per">for {duration(r.window)}</span>
-          </div>
-          {held && (
-            <p className="muted" style={{ fontSize: "0.86rem", marginTop: 4 }}>
-              {free ? `Free passes don't stack: claiming again resets your pass to ${duration(r.window)} from now.` : `Paying again adds ${duration(r.window)} on top of the time you have left.`}
-            </p>
-          )}
-        </div>
+    <div className="relative overflow-hidden rounded-2xl border bg-card p-6 shadow-sm">
+      <ShineBorder shineColor={["#2f80d8", "#8b5cf6", "#22c55e"]} borderWidth={1.5} duration={12} />
+      <Eyebrow>{held ? "Extend your pass" : "Buy a pass"}</Eyebrow>
+      <div className="mt-3 flex items-baseline gap-2">
+        <span className="font-mono text-5xl font-semibold tracking-tighter tabular-nums">{usdc(r.price)}</span>
+        <span className="text-sm text-muted-foreground">USDC / {duration(r.window)}</span>
+      </div>
+      {held && <p className="mt-2 text-xs text-muted-foreground">{free ? "Free passes reset, they don't stack." : `Adds ${duration(r.window)} to your time left.`}</p>}
 
-        <div className="stack" style={{ gap: 8 }}>
-          <span className="label">Pass holder</span>
-          <div className="seg" role="radiogroup" aria-label="Pass holder">
-            <button aria-pressed={!forOther} onClick={() => setForOther(false)}>
-              My wallet
-            </button>
-            <button aria-pressed={forOther} onClick={() => setForOther(true)}>
-              Another address
-            </button>
-          </div>
-          {forOther && (
-            <div className="field">
-              <input
-                className="input mono"
-                placeholder="0x… agent or teammate address"
-                value={other}
-                onChange={(e) => setOther(e.target.value)}
-                aria-invalid={other !== "" && !isAddress(other)}
-                spellCheck={false}
-                autoComplete="off"
-              />
-              <span className="hint">Useful for funding an agent's key from your main wallet. They hold the pass; you pay.</span>
-            </div>
-          )}
-        </div>
+      <Tabs value={forOther ? "other" : "me"} onValueChange={(v) => setForOther(v === "other")} className="mt-6">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="me">For me</TabsTrigger>
+          <TabsTrigger value="other">For an agent</TabsTrigger>
+        </TabsList>
+      </Tabs>
+      <AnimatePresence initial={false}>
+        {forOther && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+            <Input
+              className="mt-3 font-mono text-xs"
+              placeholder="0x… agent address"
+              value={other}
+              onChange={(e) => setOther(e.target.value)}
+              aria-invalid={other !== "" && !isAddress(other)}
+              aria-label="Pass holder address"
+              spellCheck={false}
+              autoComplete="off"
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-        <button className="btn btn-primary btn-lg btn-block" disabled={busy || (!!wallet && (!r.active || !otherOk))} onClick={buy}>
-          {busy && <Spinner />}
-          {label}
-        </button>
+      <Button size="lg" className="mt-4 h-12 w-full rounded-xl text-base" disabled={busy || (!!wallet && (!r.active || !otherOk))} onClick={buy}>
+        {busy && <Spinner />}
+        {label}
+      </Button>
 
+      <AnimatePresence>
         {stage && (
-          <ol className="stepper" aria-label="Payment progress">
-            {STEPS.map(([s, text], i) => (
-              <li key={s} className={i < idx || stage === "done" ? "done" : i === idx ? "now" : ""}>
-                <span className="i">{i < idx || stage === "done" ? "✓" : i + 1}</span>
-                <span>{text}</span>
-              </li>
-            ))}
-          </ol>
+          <motion.ol
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="mt-4 grid grid-cols-4 gap-1.5"
+            aria-label="Payment progress"
+          >
+            {STEPS.map(([s, text], i) => {
+              const done = i < idx || stage === "done";
+              const now = i === idx && stage !== "done";
+              return (
+                <li key={s} className="flex flex-col gap-1.5">
+                  <span className={cn("h-1 rounded-full transition-colors duration-500", done ? "bg-success" : now ? "animate-pulse bg-primary" : "bg-muted")} />
+                  <span className={cn("flex items-center gap-1 text-[11px]", done ? "text-success" : now ? "text-foreground" : "text-muted-foreground")}>
+                    {done && <Check className="size-3" />}
+                    {text}
+                  </span>
+                </li>
+              );
+            })}
+          </motion.ol>
         )}
+      </AnimatePresence>
 
-        {wallet && bal !== null && (
-          <div className="spread" style={{ fontSize: "0.86rem" }}>
-            <span className="muted">Wallet balance</span>
-            <span className={`mono ${short ? "" : ""}`} style={{ color: short ? "var(--bad)" : undefined }}>
-              {usdc(bal)} USDC
-            </span>
-          </div>
-        )}
-        {wallet && short && (
-          <div className="banner" style={{ fontSize: "0.85rem" }}>
-            <span>
-              You need about <b className="mono">{usdc(need)} USDC</b> for the price plus gas.{" "}
-              {net.faucet && (
-                <a href={net.faucet} target="_blank" rel="noopener noreferrer">
-                  Get test USDC from Circle's faucet.
-                </a>
-              )}
-            </span>
-          </div>
-        )}
-      </div>
-      <div className="card-f" style={{ fontSize: "0.8rem", color: "var(--muted)" }}>
-        One <span className="mono">pay()</span> call, gas included in USDC. The contract reverts if the seller changed the price or shortened the window after you loaded this page. No refunds: delivery is the seller's server.
-      </div>
+      {wallet && bal !== null && (
+        <div className="mt-5 flex items-center justify-between border-t pt-4 text-sm">
+          <span className="text-muted-foreground">Balance</span>
+          <span className={cn("font-mono", short && "text-destructive")}>{usdc(bal)} USDC</span>
+        </div>
+      )}
+      {wallet && short && (
+        <p className="mt-2 text-xs text-destructive">
+          Need about {usdc(need)} USDC with gas.{" "}
+          {net.faucet && (
+            <a className="underline" href={net.faucet} target="_blank" rel="noopener noreferrer">
+              Get test USDC
+            </a>
+          )}
+        </p>
+      )}
+      <p className="mt-4 text-xs text-muted-foreground">One pay() call. Reverts if the terms change. No refunds.</p>
     </div>
   );
 }

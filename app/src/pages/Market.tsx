@@ -1,12 +1,56 @@
 import { useMemo, useState } from "react";
-import { Box, Plus } from "../components/icons";
+import { ArrowUpRight, PackageOpen, Plus, Search } from "lucide-react";
+import { BlurFade } from "@/components/ui/blur-fade";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { MagicCard } from "@/components/ui/magic-card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useTheme } from "@/lib/theme";
+import { Empty, PageHeader, StatusBadge } from "../components/common";
 import { NotDeployed } from "../components/NotDeployed";
-import { ResourceRow, ResourceRowSkeleton } from "../components/ResourceRow";
-import { Empty } from "../components/ui";
-import { useResources } from "../lib/hooks";
+import { intFmt, perWindow, usdc } from "../lib/format";
+import { useResources, type Resource } from "../lib/hooks";
 import { useApp } from "../lib/store";
 
 type Sort = "new" | "sold" | "cheap" | "pricey";
+
+function ResourceCard({ r }: { r: Resource }) {
+  const { resolvedTheme } = useTheme();
+  return (
+    <a href={`#/r/${r.id}`} className="group block h-full">
+      <MagicCard className="h-full rounded-2xl" gradientColor={resolvedTheme === "dark" ? "#1c2740" : "#e6effb"} gradientFrom="#2f80d8" gradientTo="#8b5cf6">
+        <div className="flex h-full flex-col p-5">
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="font-mono">
+              #{r.id.toString()}
+            </Badge>
+            {r.meta.kind && (
+              <Badge variant="outline" className="capitalize">
+                {r.meta.kind === "api" ? "API" : r.meta.kind}
+              </Badge>
+            )}
+            <ArrowUpRight className="ml-auto size-4 text-muted-foreground transition-all group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary" />
+          </div>
+          <h3 className="mt-4 text-lg font-semibold tracking-tight">{r.meta.name}</h3>
+          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{r.meta.desc || r.meta.host || "No endpoint listed"}</p>
+          <div className="mt-auto flex items-end justify-between gap-3 pt-6">
+            <div>
+              <div className="font-mono text-2xl font-semibold tracking-tight tabular-nums">{usdc(r.price)}</div>
+              <div className="text-xs text-muted-foreground">USDC / {perWindow(r.window)}</div>
+            </div>
+            <div className="flex flex-col items-end gap-1.5">
+              <StatusBadge active={r.active} />
+              <span className="text-xs text-muted-foreground">{intFmt(r.sales)} sold</span>
+            </div>
+          </div>
+        </div>
+      </MagicCard>
+    </a>
+  );
+}
 
 export function Market() {
   const { net } = useApp();
@@ -20,7 +64,7 @@ export function Market() {
     if (onlyLive) xs = xs.filter((r) => r.active);
     const s = q.trim().toLowerCase();
     if (s) xs = xs.filter((r) => [r.meta.name, r.meta.desc, r.meta.host ?? "", r.seller, `#${r.id}`].join(" ").toLowerCase().includes(s));
-    const cmp: Record<Sort, (a: (typeof xs)[0], b: (typeof xs)[0]) => number> = {
+    const cmp: Record<Sort, (a: Resource, b: Resource) => number> = {
       new: (a, b) => Number(b.id - a.id),
       sold: (a, b) => Number(b.sales - a.sales) || Number(b.id - a.id),
       cheap: (a, b) => (a.price === b.price ? 0 : a.price < b.price ? -1 : 1),
@@ -30,65 +74,85 @@ export function Market() {
   }, [res.data, q, onlyLive, sort]);
 
   return (
-    <div className="wrap">
-      <div className="page-h">
-        <div>
-          <h1>Marketplace</h1>
-          <p>Everything for sale through PayGate on {net.label}. Each listing is a resource id on-chain with a price and an access window.</p>
-        </div>
-        <a className="btn btn-primary" href="#/sell">
-          <Plus /> List a resource
-        </a>
-      </div>
+    <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+      <PageHeader
+        title="Marketplace"
+        sub="APIs and datasets you can unlock by the hour."
+        action={
+          <Button asChild className="rounded-full">
+            <a href="#/sell">
+              <Plus className="size-4" /> List yours
+            </a>
+          </Button>
+        }
+      />
 
       {!net.contract ? (
         <NotDeployed />
       ) : (
         <>
-          <div className="spread" style={{ marginBottom: 16 }}>
-            <input className="input" style={{ maxWidth: 340 }} placeholder="Search by name, host, seller or #id" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search resources" />
-            <div className="row">
-              <div className="seg" role="group" aria-label="Status filter">
-                <button aria-pressed={onlyLive} onClick={() => setOnlyLive(true)}>
-                  On sale
-                </button>
-                <button aria-pressed={!onlyLive} onClick={() => setOnlyLive(false)}>
-                  All
-                </button>
-              </div>
-              <select className="select" style={{ width: "auto", height: 38, padding: "0 12px" }} value={sort} onChange={(e) => setSort(e.target.value as Sort)} aria-label="Sort">
-                <option value="sold">Most sold</option>
-                <option value="new">Newest</option>
-                <option value="cheap">Price, low to high</option>
-                <option value="pricey">Price, high to low</option>
-              </select>
+          <div className="mb-6 flex flex-wrap items-center gap-3">
+            <div className="relative min-w-0 flex-1 sm:max-w-xs">
+              <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input className="h-10 rounded-full pl-9" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search resources" />
             </div>
+            <Tabs value={onlyLive ? "live" : "all"} onValueChange={(v) => setOnlyLive(v === "live")} className="ml-auto">
+              <TabsList className="rounded-full">
+                <TabsTrigger value="live" className="rounded-full">
+                  On sale
+                </TabsTrigger>
+                <TabsTrigger value="all" className="rounded-full">
+                  All
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <Select value={sort} onValueChange={(v) => setSort(v as Sort)}>
+              <SelectTrigger className="h-10 w-40 rounded-full" aria-label="Sort">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="sold">Most sold</SelectItem>
+                <SelectItem value="new">Newest</SelectItem>
+                <SelectItem value="cheap">Cheapest</SelectItem>
+                <SelectItem value="pricey">Priciest</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {res.error && !res.data && (
-            <div className="banner" style={{ marginBottom: 16 }}>
-              Couldn't read the contract: {res.error}
-              <button className="btn btn-secondary btn-sm" onClick={res.reload}>
+            <div className="mb-6 flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm">
+              Couldn't read the contract.
+              <Button variant="outline" size="sm" onClick={res.reload}>
                 Retry
-              </button>
+              </Button>
             </div>
           )}
 
-          <div className="res-list">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {res.loading && !res.data
-              ? [0, 1, 2].map((i) => <ResourceRowSkeleton key={i} />)
-              : rows.map((r) => <ResourceRow key={r.id.toString()} r={r} />)}
+              ? [0, 1, 2].map((i) => <Skeleton key={i} className="h-52 rounded-2xl" />)
+              : rows.map((r, i) => (
+                  <BlurFade key={r.id.toString()} delay={0.04 * i} className="h-full">
+                    <ResourceCard r={r} />
+                  </BlurFade>
+                ))}
           </div>
 
           {res.data && rows.length === 0 && (
-            <div className="card">
+            <div className="rounded-2xl border">
               {res.data.length === 0 ? (
-                <Empty icon={<Box />} title="Nothing listed yet" action={<a className="btn btn-primary" href="#/sell">List the first resource</a>}>
-                  Any API, dataset or file can be sold by the hour. Listing costs one transaction.
-                </Empty>
+                <Empty
+                  icon={<PackageOpen />}
+                  title="Nothing listed yet"
+                  action={
+                    <Button asChild className="rounded-full">
+                      <a href="#/sell">List the first one</a>
+                    </Button>
+                  }
+                />
               ) : (
-                <Empty icon={<Box />} title="No matches">
-                  Nothing matches “{q}”{onlyLive ? " among resources on sale" : ""}.
+                <Empty icon={<Search />} title="No matches">
+                  Nothing matches “{q}”.
                 </Empty>
               )}
             </div>

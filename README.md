@@ -6,7 +6,7 @@ A seller lists an endpoint with a price and an access window. A buyer, usually a
 `pay()` call and holds a time-boxed pass on-chain. The seller's server answers unpaid requests with
 HTTP 402 and serves paid ones after one view call, `hasAccess(buyer, id)`.
 
-- **Web app:** https://arc-paygate.vercel.app (marketplace, buy flow, seller console, activity, integration guide)
+- **Web app:** https://arc-paygate.vercel.app (React, Tailwind, shadcn/ui and Magic UI: marketplace, buy flow, seller console, activity, integration guide)
 - **Try it without a wallet:** the app's *Demo* network runs the audited contract bytecode in an in-browser EVM
   (`app/src/demo`), seeded with listings and a funded throwaway wallet, so you can list, pay, sign and get a 200 in a minute.
   Nothing touches Arc; it resets on reload.

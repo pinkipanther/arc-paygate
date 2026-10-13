@@ -15,6 +15,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { NETWORKS, DEFAULT_NET, NET_KEYS, type NetKey, type Network } from "../config";
 import { discoverWallets, rememberWallet, rememberedWallet, rememberNet, rememberedNet, type DiscoveredWallet } from "./wallet";
 import { demoRequest, demoSigner, demoVisitor, DEMO_CHAIN_ID } from "../demo";
+import { toast as sonner } from "sonner";
 
 export interface Toast {
   id: number;
@@ -49,10 +50,8 @@ interface Ctx {
   openWallet: (v: boolean) => void;
   /** Returns a wallet client on the selected network, switching or adding the chain if needed. */
   signer: () => Promise<WalletClient>;
-  toasts: Toast[];
   toast: (t: Omit<Toast, "id">) => number;
   updateToast: (id: number, t: Partial<Toast>) => void;
-  dismiss: (id: number) => void;
   /** Bumped after every confirmed transaction so views refetch. */
   version: number;
   bump: () => void;
@@ -105,7 +104,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const wallet = net.simulated ? DEMO_WALLET : extWallet;
   const [connecting, setConnecting] = useState(false);
   const [walletOpen, openWallet] = useState(false);
-  const [toasts, setToasts] = useState<Toast[]>([]);
   const [version, setVersion] = useState(0);
   const seq = useRef(1);
   const autoTried = useRef(false);
@@ -115,22 +113,38 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setNetKey(k);
   }, []);
 
-  const dismiss = useCallback((id: number) => setToasts((t) => t.filter((x) => x.id !== id)), []);
+  // Transaction toasts go through sonner; each id is updated in place from pending to ok/err.
+  const live = useRef(new Map<number, Toast>());
+  const show = useCallback((t: Toast) => {
+    const opts = {
+      id: t.id,
+      description: t.body,
+      action: t.href ? { label: "View tx", onClick: () => window.open(t.href, "_blank", "noopener,noreferrer") } : undefined,
+      duration: t.tone === "pending" ? Infinity : t.tone === "err" ? 9000 : 5000,
+    };
+    if (t.tone === "pending") sonner.loading(t.title, opts);
+    else if (t.tone === "ok") sonner.success(t.title, opts);
+    else if (t.tone === "err") sonner.error(t.title, opts);
+    else sonner.info(t.title, opts);
+  }, []);
   const toast = useCallback(
     (t: Omit<Toast, "id">) => {
       const id = seq.current++;
-      setToasts((xs) => [...xs.slice(-3), { ...t, id }]);
-      if (t.tone !== "pending") setTimeout(() => dismiss(id), t.tone === "err" ? 9000 : 5000);
+      const full = { ...t, id };
+      live.current.set(id, full);
+      show(full);
       return id;
     },
-    [dismiss],
+    [show],
   );
   const updateToast = useCallback(
     (id: number, patch: Partial<Toast>) => {
-      setToasts((xs) => xs.map((x) => (x.id === id ? { ...x, ...patch } : x)));
-      if (patch.tone && patch.tone !== "pending") setTimeout(() => dismiss(id), patch.tone === "err" ? 9000 : 5000);
+      const next = { ...(live.current.get(id) ?? { id, tone: "info" as const, title: "" }), ...patch };
+      if (next.tone === "pending") live.current.set(id, next);
+      else live.current.delete(id);
+      show(next);
     },
-    [dismiss],
+    [show],
   );
   const bump = useCallback(() => setVersion((v) => v + 1), []);
 
@@ -260,10 +274,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     walletOpen,
     openWallet,
     signer,
-    toasts,
     toast,
     updateToast,
-    dismiss,
     version,
     bump,
   };

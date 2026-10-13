@@ -1,13 +1,28 @@
+import type { ReactNode } from "react";
+import { ArrowLeft, PackageX, Settings2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { BlurFade } from "@/components/ui/blur-fade";
+import { Button } from "@/components/ui/button";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { BuyPanel } from "../components/BuyPanel";
 import { CodeTabs } from "../components/CodeTabs";
-import { Arrow, Box } from "../components/icons";
 import { NotDeployed } from "../components/NotDeployed";
 import { Pass } from "../components/Pass";
 import { UsePass } from "../components/UsePass";
-import { Address, CopyButton, Empty, ExtLink, Skel, StatusPill } from "../components/ui";
+import { Address, CopyButton, Empty, ExtLink, Http, StatusBadge } from "../components/common";
 import { duration, intFmt, sameAddr, usdc } from "../lib/format";
 import { useAccess, useNow, useResource } from "../lib/hooks";
 import { useApp } from "../lib/store";
+
+function Row({ k, children }: { k: string; children: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-4 py-2.5 text-sm">
+      <dt className="text-muted-foreground">{k}</dt>
+      <dd className="min-w-0 text-right">{children}</dd>
+    </div>
+  );
+}
 
 export function ResourcePage({ id }: { id: bigint }) {
   const { net, wallet } = useApp();
@@ -18,156 +33,164 @@ export function ResourcePage({ id }: { id: bigint }) {
   const held = access.until > now;
   const mine = r && sameAddr(r.seller, wallet?.address);
 
-  if (!net.contract)
-    return (
-      <div className="wrap">
-        <NotDeployed />
-      </div>
-    );
+  const wrap = (c: ReactNode) => <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">{c}</div>;
+
+  if (!net.contract) return wrap(<NotDeployed />);
 
   if (res.loading && !r)
-    return (
-      <div className="wrap stack" style={{ gap: 20 }}>
-        <Skel w={120} h={14} />
-        <Skel w="50%" h={34} />
-        <div className="grid-main">
-          <div className="skel" style={{ height: 210, borderRadius: 20 }} />
-          <div className="skel" style={{ height: 320, borderRadius: 18 }} />
+    return wrap(
+      <div className="space-y-6">
+        <Skeleton className="h-4 w-28" />
+        <Skeleton className="h-10 w-1/2" />
+        <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+          <Skeleton className="h-48 rounded-2xl" />
+          <Skeleton className="h-80 rounded-2xl" />
         </div>
-      </div>
+      </div>,
     );
 
   if (!r)
-    return (
-      <div className="wrap">
-        <div className="card">
-          <Empty icon={<Box />} title={`Resource #${id} doesn't exist on ${net.label}`} action={<a className="btn btn-secondary" href="#/market">Back to the marketplace</a>}>
-            Ids are assigned in order as sellers list. This one hasn't been created yet, or you're on the wrong network.
-          </Empty>
-        </div>
-      </div>
+    return wrap(
+      <div className="rounded-2xl border">
+        <Empty
+          icon={<PackageX />}
+          title={`No resource #${id} on ${net.label}`}
+          action={
+            <Button asChild variant="outline" className="rounded-full">
+              <a href="#/market">Back to the market</a>
+            </Button>
+          }
+        />
+      </div>,
     );
 
-  const perHour = r.window > 0 ? (r.price * 3600n) / BigInt(r.window) : 0n;
-  const host = r.meta.host;
   const pyCmd = `python py/client.py fetch ${r.meta.url ?? "https://<seller-host>/<path>"} \\\n  --contract ${net.contract} --max-usdc ${usdc(r.price * 2n)}`;
-  const solCheck = `// gate anything on-chain or off-chain with one view call\nbool ok = PayGate(${net.contract}).hasAccess(buyer, ${r.id});`;
+  const solCheck = `// gate anything with one view call\nbool ok = PayGate(${net.contract}).hasAccess(buyer, ${r.id});`;
 
-  return (
-    <div className="wrap">
-      <a href="#/market" className="muted" style={{ fontSize: "0.88rem", display: "inline-flex", gap: 6, alignItems: "center" }}>
-        <Arrow style={{ transform: "rotate(180deg)" }} width={14} height={14} /> Marketplace
+  const details = (
+    <Card className="rounded-2xl">
+      <CardHeader>
+        <CardTitle>Details</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <dl className="divide-y">
+          <Row k="Price">
+            <span className="font-mono">{usdc(r.price)} USDC</span>
+          </Row>
+          <Row k="Window">{duration(r.window)}</Row>
+          <Row k="Sold">{intFmt(r.sales)}</Row>
+          <Row k="Revenue">
+            <span className="font-mono">{usdc(r.revenue)} USDC</span>
+          </Row>
+          <Row k="Seller">
+            <Address value={r.seller} />
+          </Row>
+          {r.meta.url && (
+            <Row k="Endpoint">
+              <span className="inline-flex max-w-full items-center">
+                <span className="truncate font-mono text-xs">{r.meta.host}</span>
+                <CopyButton text={r.meta.url} label="Copy endpoint" />
+              </span>
+            </Row>
+          )}
+        </dl>
+      </CardContent>
+    </Card>
+  );
+
+  return wrap(
+    <>
+      <a href="#/market" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+        <ArrowLeft className="size-4" /> Market
       </a>
 
-      <div className="page-h" style={{ marginTop: 12 }}>
-        <div style={{ minWidth: 0 }}>
-          <div className="row" style={{ marginBottom: 8 }}>
-            <span className="pill blue mono">#{r.id.toString()}</span>
-            <StatusPill active={r.active} />
-            {r.meta.kind && <span className="pill">{r.meta.kind}</span>}
-            {mine && <span className="pill warn">You sell this</span>}
-          </div>
-          <h1 style={{ overflowWrap: "anywhere" }}>{r.meta.name}</h1>
-          {r.meta.desc && <p>{r.meta.desc}</p>}
-        </div>
-        {mine && (
-          <a className="btn btn-secondary" href="#/sell">
-            Manage listing
-          </a>
-        )}
-      </div>
-
-      <div className="grid-main res-layout">
-        <div className="stack res-left" style={{ gap: 20 }}>
-          <div className="res-pass">
-            <Pass r={r} until={access.until} holder={wallet?.address} />
-          </div>
-
-          <div className="card res-rest">
-            <div className="card-h">
-              <h3>Use your pass</h3>
-              {held ? <span className="http s200">200</span> : <span className="http s402">402</span>}
-            </div>
-            <div className="card-b">
-              <UsePass r={r} held={held} />
-            </div>
-          </div>
-
-          <div className="card res-rest">
-            <div className="card-h">
-              <h3>Listing</h3>
-            </div>
-            <div className="card-b">
-              <dl className="kv">
-                <dt>Price</dt>
-                <dd className="mono">{usdc(r.price)} USDC</dd>
-                <dt>Access window</dt>
-                <dd>{duration(r.window)}</dd>
-                <dt>Effective rate</dt>
-                <dd className="mono">{usdc(perHour)} USDC / hour</dd>
-                <dt>Endpoint</dt>
-                <dd>
-                  {r.meta.url ? (
-                    <span className="row" style={{ gap: 4 }}>
-                      <span className="mono" style={{ fontSize: "0.86rem" }}>
-                        {host}
-                        {r.meta.path}
-                      </span>
-                      <CopyButton text={r.meta.url} label="Copy endpoint" />
-                    </span>
-                  ) : (
-                    <span className="muted">Not listed</span>
-                  )}
-                </dd>
-                <dt>Seller</dt>
-                <dd>
-                  <Address value={r.seller} />
-                </dd>
-                <dt>Passes sold</dt>
-                <dd className="num">{intFmt(r.sales)}</dd>
-                <dt>Revenue</dt>
-                <dd className="mono">{usdc(r.revenue)} USDC</dd>
-                <dt>Contract</dt>
-                <dd>
-                  <Address value={net.contract} />
-                </dd>
-              </dl>
-              <p className="muted" style={{ fontSize: "0.82rem", marginTop: 16 }}>
-                Sales and revenue are recorded by the contract. A seller can buy their own pass, so treat them as activity, not reputation.
-              </p>
-            </div>
-          </div>
-
-          <div className="card res-rest">
-            <div className="card-h">
-              <h3>Integrate</h3>
-              {net.explorer && <ExtLink href={`${net.explorer}/address/${net.contract}`}>Contract on explorer</ExtLink>}
-            </div>
-            <div className="card-b">
-              <CodeTabs
-                tabs={[
-                  { key: "py", label: "Agent (Python)", plain: pyCmd },
-                  { key: "sol", label: "Solidity", plain: solCheck },
-                  {
-                    key: "raw",
-                    label: "Raw call",
-                    plain: `to:    ${net.contract}\ndata:  pay(${r.id}, ${r.window})\nvalue: ${r.price} wei  (${usdc(r.price)} USDC)\nchain: ${net.chain.id}`,
-                  },
-                ]}
-              />
-              {net.simulated && (
-                <p className="muted" style={{ fontSize: "0.82rem", marginTop: 10 }}>
-                  The demo contract only exists in this tab. Point the client at the PayGate address on Arc for real purchases.
-                </p>
+      <BlurFade>
+        <div className="mt-5 mb-8 flex flex-wrap items-end justify-between gap-4">
+          <div className="min-w-0">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <Badge variant="secondary" className="font-mono">
+                #{r.id.toString()}
+              </Badge>
+              <StatusBadge active={r.active} />
+              {r.meta.kind && (
+                <Badge variant="outline" className="capitalize">
+                  {r.meta.kind === "api" ? "API" : r.meta.kind}
+                </Badge>
               )}
+              {mine && <Badge className="bg-warning/15 text-warning hover:bg-warning/15">You sell this</Badge>}
             </div>
+            <h1 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">{r.meta.name}</h1>
+            {r.meta.desc && <p className="mt-2 max-w-2xl text-muted-foreground">{r.meta.desc}</p>}
           </div>
+          {mine && (
+            <Button asChild variant="outline" className="rounded-full">
+              <a href="#/sell">
+                <Settings2 className="size-4" /> Manage
+              </a>
+            </Button>
+          )}
+        </div>
+      </BlurFade>
+
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="min-w-0 space-y-6">
+          <BlurFade delay={0.05}>
+            <Pass r={r} until={access.until} holder={wallet?.address} />
+          </BlurFade>
+
+          <div className="lg:hidden">
+            <BuyPanel r={r} held={held} onBought={access.reload} />
+          </div>
+
+          <BlurFade delay={0.1}>
+            <Card className="rounded-2xl">
+              <CardHeader>
+                <CardTitle>Use your pass</CardTitle>
+                <CardAction>
+                  <Http code={held ? 200 : 402} />
+                </CardAction>
+              </CardHeader>
+              <CardContent>
+                <UsePass r={r} held={held} />
+              </CardContent>
+            </Card>
+          </BlurFade>
+
+          <div className="lg:hidden">{details}</div>
+
+          <BlurFade delay={0.15}>
+            <div>
+              <Card className="rounded-2xl">
+                <CardHeader>
+                  <CardTitle>Integrate</CardTitle>
+                  {net.explorer && (
+                    <CardAction>
+                      <ExtLink href={`${net.explorer}/address/${net.contract}`}>Explorer</ExtLink>
+                    </CardAction>
+                  )}
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <CodeTabs
+                    tabs={[
+                      { key: "py", label: "Python", plain: pyCmd },
+                      { key: "sol", label: "Solidity", plain: solCheck },
+                      { key: "raw", label: "Raw", plain: `to:    ${net.contract}\ndata:  pay(${r.id}, ${r.window})\nvalue: ${r.price} wei\nchain: ${net.chain.id}` },
+                    ]}
+                  />
+                  {net.simulated && <p className="text-xs text-muted-foreground">Demo contract lives in this tab only.</p>}
+                </CardContent>
+              </Card>
+            </div>
+          </BlurFade>
         </div>
 
-        <div className="res-buy sticky-col">
-          <BuyPanel r={r} held={held} onBought={access.reload} />
+        <div className="sticky top-24 hidden space-y-6 lg:block">
+          <BlurFade delay={0.1}>
+            <BuyPanel r={r} held={held} onBought={access.reload} />
+          </BlurFade>
+          <BlurFade delay={0.15}>{details}</BlurFade>
         </div>
       </div>
-    </div>
+    </>,
   );
 }

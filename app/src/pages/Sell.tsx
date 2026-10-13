@@ -1,10 +1,22 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { formatUnits, getAddress } from "viem";
+import { ArrowDownToLine, PackageOpen, Pencil, Plus, Send, Wallet } from "lucide-react";
+import { BlurFade } from "@/components/ui/blur-fade";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { NumberTicker } from "@/components/ui/number-ticker";
+import { Switch } from "@/components/ui/switch";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { cn } from "@/lib/utils";
 import { MAX_URI } from "../config";
 import { Pass } from "../components/Pass";
 import { NotDeployed } from "../components/NotDeployed";
-import { Box, Plus, Wallet } from "../components/icons";
-import { Empty, Modal, Spinner } from "../components/ui";
+import { Empty, Eyebrow, PageHeader, Spinner } from "../components/common";
 import { duration, intFmt, isAddress, parseUsdc, sameAddr, usdc } from "../lib/format";
 import { useBalance, useResources, type Resource } from "../lib/hooks";
 import { buildMeta, byteLength, parseMeta } from "../lib/meta";
@@ -13,11 +25,11 @@ import { useTx } from "../lib/tx";
 
 const MAX_WINDOW = 365 * 86400;
 const WINDOWS: [number, string][] = [
-  [900, "15 min"],
-  [3600, "1 hour"],
-  [86400, "1 day"],
-  [604800, "7 days"],
-  [2592000, "30 days"],
+  [900, "15m"],
+  [3600, "1h"],
+  [86400, "1d"],
+  [604800, "7d"],
+  [2592000, "30d"],
 ];
 const PRICES = ["0.01", "0.05", "0.10", "1.00"];
 
@@ -38,79 +50,68 @@ function validate(d: Draft) {
   const uri = buildMeta({ name: d.name, desc: d.desc, url: d.url });
   const bytes = byteLength(uri);
   const errs: Partial<Record<"name" | "url" | "price" | "window" | "uri", string>> = {};
-  if (!d.name.trim()) errs.name = "Give buyers a name to recognise.";
-  if (d.url.trim() && !/^https?:\/\/[^\s/$.?#].[^\s]*$/i.test(d.url.trim())) errs.url = "Use a full URL starting with https://";
-  if (price === null) errs.price = "Enter a price in USDC, for example 0.05.";
-  else if (/\.\d{7,}/.test(d.price.trim())) errs.price = "Use at most 6 decimal places; USDC's smallest unit is 0.000001.";
-  else if (price >= 2n ** 96n) errs.price = "That price is too large.";
-  if (!Number.isFinite(window) || window < 1) errs.window = "Pick an access window.";
-  else if (window > MAX_WINDOW) errs.window = "The longest window is 365 days.";
-  if (bytes > MAX_URI) errs.uri = `Listing details are ${bytes} bytes; the limit is ${MAX_URI}. Shorten the description.`;
+  if (!d.name.trim()) errs.name = "Add a name.";
+  if (d.url.trim() && !/^https?:\/\/[^\s/$.?#].[^\s]*$/i.test(d.url.trim())) errs.url = "Use a full https:// URL.";
+  if (price === null) errs.price = "Enter a price, e.g. 0.05.";
+  else if (/\.\d{7,}/.test(d.price.trim())) errs.price = "Max 6 decimals.";
+  else if (price >= 2n ** 96n) errs.price = "Too large.";
+  if (!Number.isFinite(window) || window < 1) errs.window = "Pick a window.";
+  else if (window > MAX_WINDOW) errs.window = "Max 365 days.";
+  if (bytes > MAX_URI) errs.uri = `${bytes}/${MAX_URI} bytes. Shorten the description.`;
   return { price, window, uri, bytes, errs, ok: Object.keys(errs).length === 0 };
 }
 
-function TermsFields({ d, set, v }: { d: Draft; set: (p: Partial<Draft>) => void; v: ReturnType<typeof validate> }) {
-  const perHour = v.price !== null && v.window > 0 ? (v.price * 3600n) / BigInt(v.window) : null;
+function Field({ label, htmlFor, err, children, hint }: { label: string; htmlFor?: string; err?: string; hint?: ReactNode; children: ReactNode }) {
   return (
-    <>
-      <div className="field">
-        <label htmlFor="f-name">Name</label>
-        <input id="f-name" className="input" placeholder="Polymarket reward pools" value={d.name} onChange={(e) => set({ name: e.target.value })} aria-invalid={!!v.errs.name && d.name !== ""} maxLength={80} />
-      </div>
-      <div className="field">
-        <label htmlFor="f-desc">Description</label>
-        <textarea id="f-desc" className="textarea" placeholder="What the buyer gets, how fresh it is, response format." value={d.desc} onChange={(e) => set({ desc: e.target.value })} />
-      </div>
-      <div className="field">
-        <label htmlFor="f-url">Endpoint URL</label>
-        <input id="f-url" className="input mono" placeholder="https://api.yourhost.com/v1/data" value={d.url} onChange={(e) => set({ url: e.target.value })} aria-invalid={!!v.errs.url} spellCheck={false} />
-        {v.errs.url ? <span className="err">{v.errs.url}</span> : <span className="hint">The URL your PayGate server answers on. Buyers sign requests for this host.</span>}
-      </div>
-      <div className="grid-2" style={{ gap: 16 }}>
-        <div className="field">
-          <label htmlFor="f-price">Price</label>
-          <div className="input-affix">
-            <input id="f-price" className="input mono" inputMode="decimal" value={d.price} onChange={(e) => set({ price: e.target.value })} aria-invalid={!!v.errs.price} />
-            <span>USDC</span>
-          </div>
-          <div className="chips">
+    <div className="space-y-2">
+      <Label htmlFor={htmlFor}>{label}</Label>
+      {children}
+      {err ? <p className="text-xs text-destructive">{err}</p> : hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
+    </div>
+  );
+}
+
+function TermsFields({ d, set, v }: { d: Draft; set: (p: Partial<Draft>) => void; v: ReturnType<typeof validate> }) {
+  return (
+    <div className="space-y-5">
+      <Field label="Name" htmlFor="f-name" err={d.name !== "" ? v.errs.name : undefined}>
+        <Input id="f-name" placeholder="Polymarket reward pools" value={d.name} onChange={(e) => set({ name: e.target.value })} maxLength={80} />
+      </Field>
+      <Field label="Description" htmlFor="f-desc">
+        <Textarea id="f-desc" rows={2} placeholder="What buyers get" value={d.desc} onChange={(e) => set({ desc: e.target.value })} />
+      </Field>
+      <Field label="Endpoint" htmlFor="f-url" err={v.errs.url} hint="Buyers sign requests for this host.">
+        <Input id="f-url" className="font-mono text-sm" placeholder="https://api.you.com/v1/data" value={d.url} onChange={(e) => set({ url: e.target.value })} spellCheck={false} />
+      </Field>
+      <div className="grid gap-5 sm:grid-cols-2">
+        <Field label="Price (USDC)" htmlFor="f-price" err={v.errs.price}>
+          <Input id="f-price" className="font-mono" inputMode="decimal" value={d.price} onChange={(e) => set({ price: e.target.value })} aria-invalid={!!v.errs.price} />
+          <ToggleGroup type="single" value={PRICES.includes(d.price) ? d.price : ""} onValueChange={(p) => p && set({ price: p })} className="justify-start" variant="outline" size="sm">
             {PRICES.map((p) => (
-              <button type="button" key={p} className="chip" aria-pressed={d.price === p} onClick={() => set({ price: p })}>
+              <ToggleGroupItem key={p} value={p} className="font-mono text-xs">
                 {p}
-              </button>
+              </ToggleGroupItem>
             ))}
-          </div>
-          {v.errs.price && <span className="err">{v.errs.price}</span>}
-        </div>
-        <div className="field">
-          <label>Access window</label>
-          <div className="chips">
+          </ToggleGroup>
+        </Field>
+        <Field label="Access window" err={v.errs.window}>
+          <ToggleGroup type="single" value={String(d.window)} onValueChange={(w) => w && set({ window: Number(w) })} className="flex-wrap justify-start" variant="outline" size="sm">
             {WINDOWS.map(([s, l]) => (
-              <button type="button" key={s} className="chip" aria-pressed={d.window === s} onClick={() => set({ window: s })}>
+              <ToggleGroupItem key={s} value={String(s)} className="font-mono text-xs">
                 {l}
-              </button>
+              </ToggleGroupItem>
             ))}
-            <button type="button" className="chip" aria-pressed={d.window === -1} onClick={() => set({ window: -1 })}>
+            <ToggleGroupItem value="-1" className="text-xs">
               Custom
-            </button>
-          </div>
-          {d.window === -1 && (
-            <div className="input-affix">
-              <input className="input mono" inputMode="numeric" placeholder="90" value={d.customMin} onChange={(e) => set({ customMin: e.target.value })} aria-label="Custom window in minutes" />
-              <span>minutes</span>
-            </div>
-          )}
-          {v.errs.window && <span className="err">{v.errs.window}</span>}
-        </div>
+            </ToggleGroupItem>
+          </ToggleGroup>
+          {d.window === -1 && <Input className="font-mono" inputMode="numeric" placeholder="Minutes, e.g. 90" value={d.customMin} onChange={(e) => set({ customMin: e.target.value })} aria-label="Custom window in minutes" />}
+        </Field>
       </div>
-      <div className="spread" style={{ fontSize: "0.84rem" }}>
-        <span className="muted">{perHour !== null ? <>Effective rate <span className="mono ink2">{usdc(perHour)} USDC / hour</span></> : " "}</span>
-        <span className="mono" style={{ color: v.errs.uri ? "var(--bad)" : "var(--muted)" }}>
-          {v.bytes}/{MAX_URI} bytes on-chain
-        </span>
+      <div className={cn("text-right font-mono text-[11px]", v.errs.uri ? "text-destructive" : "text-muted-foreground")}>
+        {v.errs.uri ?? `${v.bytes}/${MAX_URI} bytes on-chain`}
       </div>
-      {v.errs.uri && <span className="err" style={{ fontSize: "0.82rem", color: "var(--bad)" }}>{v.errs.uri}</span>}
-    </>
+    </div>
   );
 }
 
@@ -131,7 +132,7 @@ function CreateForm() {
       sales: 0n,
       revenue: 0n,
       uri: v.uri,
-      meta: { ...parseMeta(v.uri, 0), name: d.name.trim() || "Your resource" },
+      meta: { ...parseMeta(v.uri, 0), name: d.name.trim() || "Your API" },
     }),
     [wallet?.address, v.price, v.window, v.uri, d.name],
   );
@@ -142,58 +143,38 @@ function CreateForm() {
     if (!v.ok || v.price === null) return;
     setBusy(true);
     try {
-      await tx({ label: `List “${d.name.trim()}”`, functionName: "createResource", args: [v.price, v.window, v.uri], success: () => "Listed. It's in the marketplace now." });
+      await tx({ label: `List “${d.name.trim()}”`, functionName: "createResource", args: [v.price, v.window, v.uri], success: () => "It's in the market now." });
       setD(blank);
     } catch {
-      /* toast already explains */
+      /* toast explains */
     } finally {
       setBusy(false);
     }
   }
 
-  const example402 = JSON.stringify(
-    { scheme: "paygate-native-v2", chain_id: net.chain.id, contract: net.contract ?? "0x…", resource_id: "<assigned on listing>", price_usdc: usdc(v.price ?? 0n), window_seconds: v.window > 0 ? v.window : 0 },
-    null,
-    2,
-  );
-
   return (
-    <div className="grid-create">
-      <form className="card" onSubmit={submit} noValidate>
-        <div className="card-h">
-          <h3>List a resource</h3>
-          <span className="muted" style={{ fontSize: "0.84rem" }}>One transaction</span>
+    <div id="new" className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
+      <form className="rounded-2xl border bg-card p-6" onSubmit={submit} noValidate>
+        <div className="mb-6 flex items-center justify-between">
+          <h2 className="text-lg font-semibold tracking-tight">New listing</h2>
+          <span className="text-xs text-muted-foreground">One transaction</span>
         </div>
-        <div className="card-b stack" style={{ gap: 18 }}>
-          <TermsFields d={d} set={set} v={v} />
-        </div>
-        <div className="card-f spread">
-          <span className="muted" style={{ fontSize: "0.84rem" }}>
-            You can reprice, pause or hand it to another address later.
-          </span>
-          <button className="btn btn-primary" type="submit" disabled={!net.contract || busy || (!!wallet && !v.ok)}>
-            {busy && <Spinner />}
-            {!net.contract ? "Not deployed on this network" : wallet ? "List resource" : "Connect wallet to list"}
-          </button>
-        </div>
+        <TermsFields d={d} set={set} v={v} />
+        <Button type="submit" size="lg" className="mt-6 h-11 w-full rounded-xl" disabled={!net.contract || busy || (!!wallet && !v.ok)}>
+          {busy ? <Spinner /> : <Plus className="size-4" />}
+          {!net.contract ? "Not deployed here" : wallet ? "List it" : "Connect wallet"}
+        </Button>
       </form>
-      <div className="stack sticky-col" style={{ gap: 16 }}>
-        <span className="eyebrow">What buyers see</span>
+      <div className="space-y-3 lg:sticky lg:top-24">
+        <Eyebrow>Live preview</Eyebrow>
         <Pass r={preview} until={0} preview />
-        <div>
-          <div className="label" style={{ marginBottom: 6 }}>
-            The 402 your server returns
-          </div>
-          <pre className="code" style={{ fontSize: "0.78rem" }}>
-            {example402}
-          </pre>
-        </div>
+        <p className="text-xs text-muted-foreground">Reprice, pause or transfer it anytime.</p>
       </div>
     </div>
   );
 }
 
-function EditModal({ r, onClose }: { r: Resource; onClose: () => void }) {
+function EditDialog({ r, onClose }: { r: Resource; onClose: () => void }) {
   const tx = useTx();
   const [d, setD] = useState<Draft>(() => {
     const w = WINDOWS.some(([s]) => s === r.window) ? r.window : -1;
@@ -207,7 +188,7 @@ function EditModal({ r, onClose }: { r: Resource; onClose: () => void }) {
     if (!v.ok || v.price === null) return;
     setBusy(true);
     try {
-      await tx({ label: `Update #${r.id}`, functionName: "updateResource", args: [r.id, v.price, v.window, active, v.uri], success: () => "Listing updated." });
+      await tx({ label: `Update #${r.id}`, functionName: "updateResource", args: [r.id, v.price, v.window, active, v.uri], success: () => "Saved." });
       onClose();
     } catch {
       /* toast explains */
@@ -216,30 +197,31 @@ function EditModal({ r, onClose }: { r: Resource; onClose: () => void }) {
     }
   }
   return (
-    <Modal title={`Edit #${r.id} · ${r.meta.name}`} onClose={onClose} wide>
-      <div className="stack" style={{ gap: 18 }}>
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Edit #{r.id.toString()}</DialogTitle>
+          <DialogDescription>Price or window changes make in-flight buys revert, never overcharge.</DialogDescription>
+        </DialogHeader>
         <TermsFields d={d} set={set} v={v} />
-        <label className="switch">
-          <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
-          {active ? "On sale" : "Paused (existing passes keep working)"}
+        <label className="flex items-center gap-3 rounded-xl border p-3 text-sm">
+          <Switch checked={active} onCheckedChange={setActive} />
+          {active ? "On sale" : "Paused · existing passes keep working"}
         </label>
-        <div className="banner info" style={{ fontSize: "0.84rem" }}>
-          Changing the price or shortening the window makes in-flight purchases revert, so buyers never pay more or get less than they were quoted.
-        </div>
-        <div className="row" style={{ justifyContent: "flex-end" }}>
-          <button className="btn btn-ghost" onClick={onClose}>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>
             Cancel
-          </button>
-          <button className="btn btn-primary" onClick={save} disabled={busy || !v.ok}>
-            {busy && <Spinner />}Save changes
-          </button>
-        </div>
-      </div>
-    </Modal>
+          </Button>
+          <Button onClick={save} disabled={busy || !v.ok}>
+            {busy && <Spinner />}Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-function TransferModal({ r, onClose }: { r: Resource; onClose: () => void }) {
+function TransferDialog({ r, onClose }: { r: Resource; onClose: () => void }) {
   const tx = useTx();
   const [to, setTo] = useState("");
   const [confirm, setConfirm] = useState(false);
@@ -248,7 +230,7 @@ function TransferModal({ r, onClose }: { r: Resource; onClose: () => void }) {
   async function go() {
     setBusy(true);
     try {
-      await tx({ label: `Transfer #${r.id}`, functionName: "transferResource", args: [r.id, getAddress(to)], success: () => "Transferred. Future sales go to the new seller." });
+      await tx({ label: `Transfer #${r.id}`, functionName: "transferResource", args: [r.id, getAddress(to)], success: () => "Future sales go to the new seller." });
       onClose();
     } catch {
       /* toast */
@@ -257,30 +239,30 @@ function TransferModal({ r, onClose }: { r: Resource; onClose: () => void }) {
     }
   }
   return (
-    <Modal title={`Transfer #${r.id}`} onClose={onClose}>
-      <div className="stack" style={{ gap: 16 }}>
-        <p className="ink2">The new address receives all future sales and controls the listing. USDC you've already earned stays withdrawable by you.</p>
-        <div className="field">
-          <label htmlFor="t-to">New seller address</label>
-          <input id="t-to" className="input mono" placeholder="0x…" value={to} onChange={(e) => setTo(e.target.value)} aria-invalid={to !== "" && !ok} spellCheck={false} />
-        </div>
-        <label className="row" style={{ fontSize: "0.88rem" }}>
-          <input type="checkbox" checked={confirm} onChange={(e) => setConfirm(e.target.checked)} /> I control this address or trust its owner. This can't be undone by me.
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Transfer #{r.id.toString()}</DialogTitle>
+          <DialogDescription>The new address gets future sales and control. What you've earned stays yours.</DialogDescription>
+        </DialogHeader>
+        <Input className="font-mono text-sm" placeholder="0x… new seller" value={to} onChange={(e) => setTo(e.target.value)} aria-invalid={to !== "" && !ok} aria-label="New seller address" spellCheck={false} />
+        <label className="flex items-start gap-3 text-sm text-muted-foreground">
+          <Checkbox checked={confirm} onCheckedChange={(c) => setConfirm(c === true)} className="mt-0.5" />I trust this address. I can't undo this.
         </label>
-        <div className="row" style={{ justifyContent: "flex-end" }}>
-          <button className="btn btn-ghost" onClick={onClose}>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>
             Cancel
-          </button>
-          <button className="btn btn-danger" onClick={go} disabled={!ok || !confirm || busy}>
-            {busy && <Spinner />}Transfer listing
-          </button>
-        </div>
-      </div>
-    </Modal>
+          </Button>
+          <Button variant="destructive" onClick={go} disabled={!ok || !confirm || busy}>
+            {busy && <Spinner />}Transfer
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-function WithdrawToModal({ amount, onClose }: { amount: bigint; onClose: () => void }) {
+function WithdrawToDialog({ amount, onClose }: { amount: bigint; onClose: () => void }) {
   const tx = useTx();
   const [to, setTo] = useState("");
   const [busy, setBusy] = useState(false);
@@ -296,25 +278,32 @@ function WithdrawToModal({ amount, onClose }: { amount: bigint; onClose: () => v
     }
   }
   return (
-    <Modal title="Withdraw to another address" onClose={onClose}>
-      <div className="stack" style={{ gap: 16 }}>
-        <p className="ink2">
-          Sends your full balance of <span className="mono">{usdc(amount)} USDC</span> to a cold wallet or exchange deposit address. Useful when your seller address can't receive USDC itself.
-        </p>
-        <div className="field">
-          <label htmlFor="w-to">Destination</label>
-          <input id="w-to" className="input mono" placeholder="0x…" value={to} onChange={(e) => setTo(e.target.value)} aria-invalid={to !== "" && !isAddress(to)} spellCheck={false} />
-        </div>
-        <div className="row" style={{ justifyContent: "flex-end" }}>
-          <button className="btn btn-ghost" onClick={onClose}>
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Withdraw elsewhere</DialogTitle>
+          <DialogDescription>Send all {usdc(amount)} USDC to another address.</DialogDescription>
+        </DialogHeader>
+        <Input className="font-mono text-sm" placeholder="0x… destination" value={to} onChange={(e) => setTo(e.target.value)} aria-invalid={to !== "" && !isAddress(to)} aria-label="Destination" spellCheck={false} />
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>
             Cancel
-          </button>
-          <button className="btn btn-primary" onClick={go} disabled={!isAddress(to) || busy}>
+          </Button>
+          <Button onClick={go} disabled={!isAddress(to) || busy}>
             {busy && <Spinner />}Withdraw
-          </button>
-        </div>
-      </div>
-    </Modal>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function Tile({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
+  return (
+    <div className={cn("rounded-2xl border bg-card p-5", className)}>
+      <Eyebrow>{label}</Eyebrow>
+      <div className="mt-2">{children}</div>
+    </div>
   );
 }
 
@@ -346,7 +335,7 @@ export function Sell() {
   async function toggle(r: Resource) {
     setToggling(r.id);
     try {
-      await tx({ label: r.active ? `Pause #${r.id}` : `Resume #${r.id}`, functionName: "updateResource", args: [r.id, r.price, r.window, !r.active, r.uri], success: () => (r.active ? "Paused. Existing passes keep working." : "Back on sale.") });
+      await tx({ label: r.active ? `Pause #${r.id}` : `Resume #${r.id}`, functionName: "updateResource", args: [r.id, r.price, r.window, !r.active, r.uri], success: () => (r.active ? "Paused." : "Back on sale.") });
     } catch {
       /* toast */
     } finally {
@@ -355,136 +344,128 @@ export function Sell() {
   }
 
   return (
-    <div className="wrap">
-      <div className="page-h">
-        <div>
-          <h1>Sell access</h1>
-          <p>List an endpoint, set a price per window, and collect USDC as passes sell. Your server checks one view call before answering.</p>
-        </div>
-      </div>
+    <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+      <PageHeader title="Sell access" sub="List an endpoint, set a price, collect USDC." />
 
       {!net.contract ? (
-        <div className="stack" style={{ gap: 28 }}>
+        <div className="space-y-8">
           <NotDeployed />
           <CreateForm />
         </div>
       ) : (
-        <div className="stack" style={{ gap: 28 }}>
-          <div className="card">
-            <div className="split">
-              <div className="card-b">
-                <span className="eyebrow">Ready to withdraw</span>
-                <div className="price-big" style={{ marginTop: 8 }}>
-                  <span className="amt num">{wallet ? (bal === null ? "…" : usdc(bal)) : "—"}</span>
-                  <span className="unit">USDC</span>
+        <div className="space-y-8">
+          <BlurFade>
+            <div className="grid gap-4 md:grid-cols-[1.4fr_1fr_1fr]">
+              <Tile label="Ready to withdraw" className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-card to-card">
+                <div className="font-mono text-4xl font-semibold tracking-tighter tabular-nums">
+                  {wallet ? (bal === null ? "…" : usdc(bal)) : "—"} <span className="font-sans text-base font-normal tracking-normal text-muted-foreground">USDC</span>
                 </div>
-                <div className="row" style={{ marginTop: 16 }}>
+                <div className="mt-4 flex flex-wrap gap-2">
                   {wallet ? (
                     <>
-                      <button className="btn btn-primary" onClick={withdraw} disabled={!bal || busyW}>
-                        {busyW && <Spinner />}Withdraw to my wallet
-                      </button>
-                      <button className="btn btn-secondary" onClick={() => setWTo(true)} disabled={!bal}>
-                        Withdraw elsewhere
-                      </button>
+                      <Button onClick={withdraw} disabled={!bal || busyW} className="rounded-full">
+                        {busyW ? <Spinner /> : <ArrowDownToLine className="size-4" />}Withdraw
+                      </Button>
+                      <Button variant="outline" onClick={() => setWTo(true)} disabled={!bal} className="rounded-full">
+                        <Send className="size-4" />
+                        Elsewhere
+                      </Button>
                     </>
                   ) : (
-                    <button className="btn btn-primary" onClick={() => openWallet(true)}>
-                      <Wallet /> Connect wallet
-                    </button>
+                    <Button onClick={() => openWallet(true)} className="rounded-full">
+                      <Wallet className="size-4" /> Connect
+                    </Button>
                   )}
                 </div>
-              </div>
-              <div className="card-b">
-                <dl className="kv">
-                  <dt>Your listings</dt>
-                  <dd className="num">{wallet ? intFmt(mine.length) : "—"}</dd>
-                  <dt>Passes sold</dt>
-                  <dd className="num">{wallet ? intFmt(sold) : "—"}</dd>
-                  <dt>Lifetime revenue</dt>
-                  <dd className="mono">{wallet ? `${usdc(lifetime)} USDC` : "—"}</dd>
-                  <dt>Fees</dt>
-                  <dd>None. The contract has no owner and takes no cut.</dd>
-                </dl>
-              </div>
+              </Tile>
+              <Tile label="Passes sold">
+                <div className="font-mono text-4xl font-semibold tracking-tighter tabular-nums">{wallet ? <NumberTicker value={Number(sold)} /> : "—"}</div>
+                <p className="mt-1 text-xs text-muted-foreground">{wallet ? `${intFmt(mine.length)} listings` : ""}</p>
+              </Tile>
+              <Tile label="Lifetime revenue">
+                <div className="font-mono text-4xl font-semibold tracking-tighter tabular-nums">{wallet ? <NumberTicker value={Number(lifetime) / 1e18} decimalPlaces={2} /> : "—"}</div>
+                <p className="mt-1 text-xs text-muted-foreground">No fees. No owner.</p>
+              </Tile>
             </div>
-          </div>
+          </BlurFade>
 
-          <div className="card">
-            <div className="card-h">
-              <h3>Your listings</h3>
-              <button className="btn btn-secondary btn-sm" onClick={() => document.getElementById("new")?.scrollIntoView({ behavior: "smooth", block: "start" })}>
-                <Plus /> New
-              </button>
-            </div>
-            {!wallet ? (
-              <Empty icon={<Wallet />} title="Connect to see your listings" action={<button className="btn btn-primary" onClick={() => openWallet(true)}>Connect wallet</button>}>
-                Listings belong to the address that created them.
-              </Empty>
-            ) : mine.length === 0 ? (
-              <Empty icon={<Box />} title="No listings yet">
-                Fill in the form below. Your first listing takes one transaction and shows up in the marketplace right away.
-              </Empty>
-            ) : (
-              <div className="tablewrap">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Resource</th>
-                      <th className="r">Price</th>
-                      <th>Window</th>
-                      <th className="r">Sold</th>
-                      <th className="r">Revenue</th>
-                      <th>On sale</th>
-                      <th />
-                    </tr>
-                  </thead>
-                  <tbody>
+          <BlurFade delay={0.08}>
+            <div className="overflow-hidden rounded-2xl border bg-card">
+              <div className="flex items-center justify-between border-b px-5 py-4">
+                <h2 className="font-semibold tracking-tight">Your listings</h2>
+                <Button variant="outline" size="sm" className="rounded-full" onClick={() => document.getElementById("new")?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+                  <Plus className="size-4" /> New
+                </Button>
+              </div>
+              {!wallet ? (
+                <Empty
+                  icon={<Wallet />}
+                  title="Connect to see your listings"
+                  action={
+                    <Button onClick={() => openWallet(true)} className="rounded-full">
+                      Connect wallet
+                    </Button>
+                  }
+                />
+              ) : mine.length === 0 ? (
+                <Empty icon={<PackageOpen />} title="No listings yet">
+                  Your first one is a single transaction.
+                </Empty>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="pl-5">Resource</TableHead>
+                      <TableHead className="text-right">Price</TableHead>
+                      <TableHead className="hidden sm:table-cell">Window</TableHead>
+                      <TableHead className="hidden text-right sm:table-cell">Sold</TableHead>
+                      <TableHead className="hidden text-right md:table-cell">Revenue</TableHead>
+                      <TableHead>Live</TableHead>
+                      <TableHead className="pr-5" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {mine.map((r) => (
-                      <tr key={r.id.toString()}>
-                        <td>
-                          <a href={`#/r/${r.id}`} style={{ fontWeight: 600, color: "var(--ink)" }}>
+                      <TableRow key={r.id.toString()}>
+                        <TableCell className="pl-5">
+                          <a href={`#/r/${r.id}`} className="font-medium hover:text-primary">
                             {r.meta.name}
                           </a>
-                          <div className="muted mono" style={{ fontSize: "0.78rem" }}>
-                            #{r.id.toString()} {r.meta.host ? `· ${r.meta.host}` : ""}
+                          <div className="font-mono text-[11px] text-muted-foreground">#{r.id.toString()}</div>
+                        </TableCell>
+                        <TableCell className="text-right font-mono">{usdc(r.price)}</TableCell>
+                        <TableCell className="hidden sm:table-cell">{duration(r.window)}</TableCell>
+                        <TableCell className="hidden text-right sm:table-cell">{intFmt(r.sales)}</TableCell>
+                        <TableCell className="hidden text-right font-mono md:table-cell">{usdc(r.revenue)}</TableCell>
+                        <TableCell>
+                          <Switch checked={r.active} disabled={toggling === r.id} onCheckedChange={() => toggle(r)} aria-label={r.active ? "Pause" : "Resume"} />
+                        </TableCell>
+                        <TableCell className="pr-5 text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="icon" className="size-8" onClick={() => setEdit(r)} aria-label="Edit">
+                              <Pencil className="size-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="size-8" onClick={() => setXfer(r)} aria-label="Transfer">
+                              <Send className="size-4" />
+                            </Button>
                           </div>
-                        </td>
-                        <td className="r mono">{usdc(r.price)}</td>
-                        <td>{duration(r.window)}</td>
-                        <td className="r num">{intFmt(r.sales)}</td>
-                        <td className="r mono">{usdc(r.revenue)}</td>
-                        <td>
-                          <label className="switch" title={r.active ? "Pause new sales" : "Resume sales"}>
-                            <input type="checkbox" checked={r.active} disabled={toggling === r.id} onChange={() => toggle(r)} aria-label={r.active ? "Pause" : "Resume"} />
-                          </label>
-                        </td>
-                        <td className="r">
-                          <div className="row" style={{ justifyContent: "flex-end", gap: 6, flexWrap: "nowrap" }}>
-                            <button className="btn btn-secondary btn-sm" onClick={() => setEdit(r)}>
-                              Edit
-                            </button>
-                            <button className="btn btn-ghost btn-sm" onClick={() => setXfer(r)}>
-                              Transfer
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+                  </TableBody>
+                </Table>
+              )}
+            </div>
+          </BlurFade>
 
-          <div id="new">
+          <BlurFade delay={0.12}>
             <CreateForm />
-          </div>
+          </BlurFade>
         </div>
       )}
-      {edit && <EditModal r={edit} onClose={() => setEdit(null)} />}
-      {xfer && <TransferModal r={xfer} onClose={() => setXfer(null)} />}
-      {wTo && bal !== null && <WithdrawToModal amount={bal} onClose={() => setWTo(false)} />}
+      {edit && <EditDialog r={edit} onClose={() => setEdit(null)} />}
+      {xfer && <TransferDialog r={xfer} onClose={() => setXfer(null)} />}
+      {wTo && bal !== null && <WithdrawToDialog amount={bal} onClose={() => setWTo(false)} />}
     </div>
   );
 }

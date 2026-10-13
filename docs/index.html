@@ -4,12 +4,22 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>PayGate</title>
-    <meta name="description" content="Sell API access by the hour for native USDC on Arc. One transaction to buy, nothing to approve." />
-    <meta name="theme-color" content="#f6f7f9" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#0b0e13" media="(prefers-color-scheme: dark)" />
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232775CA'/%3E%3Cpath d='M10 21V11h7a4 4 0 0 1 0 8h-7' fill='none' stroke='white' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-    <script type="module" crossorigin src="./assets/index-BupHCylN.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-CVsLXmk7.css">
+    <meta name="description" content="Paywall any API and get paid in native USDC on Arc. One transaction to buy, nothing to approve." />
+    <meta name="theme-color" content="#fbfcfd" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="apple-touch-icon" href="./logo.png" />
+    <meta property="og:title" content="PayGate" />
+    <meta property="og:description" content="Paywall any API. Get paid in USDC on Arc, one transaction per pass." />
+    <meta property="og:image" content="https://arc-paygate.vercel.app/logo.png" />
+    <script>
+      try {
+        var t = localStorage.getItem("paygate.theme");
+        if (t === "dark" || ((!t || t === "system") && matchMedia("(prefers-color-scheme: dark)").matches)) document.documentElement.classList.add("dark");
+      } catch (e) {}
+    </script>
+    <script type="module" crossorigin src="./assets/index-DMWNp4nh.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-apqVvBPC.css">
   </head>
   <body>
     <div id="root"></div>

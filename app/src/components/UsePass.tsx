@@ -1,12 +1,15 @@
 import { useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { Lock, PenLine, Send } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { useApp } from "../lib/store";
 import { useNow, type Resource } from "../lib/hooks";
 import { explain } from "../lib/tx";
-import { CopyButton, Spinner } from "./ui";
-import { Lock } from "./icons";
 import { authMessage, NONCE_PERIOD } from "../lib/auth";
 import { demoFetch } from "../demo/server";
-
+import { CodeTabs } from "./CodeTabs";
+import { CopyButton, Http, Spinner } from "./common";
 
 interface Signed {
   address: string;
@@ -32,21 +35,18 @@ export function UsePass({ r, held }: { r: Resource; held: boolean }) {
   const [err, setErr] = useState<string | null>(null);
   const url = r.meta.url;
 
-  if (!url) {
-    return <p className="muted">This listing has no endpoint URL, so there is nothing to call. The pass still exists on-chain and any server can check it with hasAccess().</p>;
-  }
-  if (!held) {
+  if (!url) return <p className="text-sm text-muted-foreground">No endpoint listed. Servers can still check this pass with hasAccess().</p>;
+  if (!held)
     return (
-      <div className="row" style={{ alignItems: "flex-start", gap: 12 }}>
-        <span className="iconbtn" style={{ background: "var(--surface-2)" }}>
-          <Lock />
+      <div className="flex items-center gap-3 rounded-xl border border-dashed p-4">
+        <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
+          <Lock className="size-4" />
         </span>
-        <p className="muted" style={{ flex: 1, minWidth: 0 }}>
-          Calling <span className="mono ink2">{r.meta.host}</span> without a pass returns <span className="http s402">402</span>. Buy a pass and this panel signs a request with your wallet and sends it, so you can watch the server turn it into a <span className="http s200">200</span>.
+        <p className="text-sm text-muted-foreground">
+          Buy a pass to turn <Http code={402} /> into <Http code={200} /> right here.
         </p>
       </div>
     );
-  }
 
   const stale = signed && Math.floor(now / NONCE_PERIOD) - signed.nonce > 1;
 
@@ -88,66 +88,57 @@ export function UsePass({ r, held }: { r: Resource; held: boolean }) {
       }
       setRes({ status: resp.status, body: body.length > 6000 ? body.slice(0, 6000) + "\n…" : body, ms: Math.round(performance.now() - t0) });
     } catch {
-      setErr(`${new URL(signed.url).host} did not answer from this browser. The server may be offline or not allow cross-origin requests; the curl command below works from any terminal.`);
+      setErr(`${new URL(signed.url).host} didn't answer from the browser. Try the curl command.`);
     } finally {
       setBusy(null);
     }
   }
 
-  const curl = signed
-    ? `curl ${signed.url} \\\n  -H "X-PayGate-Address: ${signed.address}" \\\n  -H "X-PayGate-Signature: ${signed.signature}"`
-    : "";
+  const curl = signed ? `curl ${signed.url} \\\n  -H "X-PayGate-Address: ${signed.address}" \\\n  -H "X-PayGate-Signature: ${signed.signature}"` : "";
+  const step = res ? 3 : signed && !stale ? 2 : 1;
 
   return (
-    <div className="stack" style={{ gap: 14 }}>
-      <p className="ink2" style={{ fontSize: "0.93rem" }}>
-        Your wallet signs a short message bound to this chain, contract, resource and host. The signature is a bearer credential for about five minutes; it moves no funds.
-      </p>
-      <div className="row">
-        <button className="btn btn-primary" onClick={sign} disabled={busy !== null}>
-          {busy === "sign" && <Spinner />}
-          {signed && !stale ? "Sign again" : "Sign request"}
-        </button>
-        <button className="btn btn-secondary" onClick={send} disabled={!signed || !!stale || busy !== null}>
-          {busy === "send" && <Spinner />}
-          Send to {r.meta.host}
-        </button>
-        {stale && <span className="pill warn">Signature expired, sign again</span>}
+    <div className="space-y-4">
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Button variant={step === 1 ? "default" : "outline"} onClick={sign} disabled={busy !== null} className="h-11 justify-start rounded-xl">
+          {busy === "sign" ? <Spinner /> : <PenLine className="size-4" />}
+          <span className="font-mono text-xs opacity-60">1</span> {signed && !stale ? "Sign again" : "Sign request"}
+        </Button>
+        <Button variant={step === 2 ? "default" : "outline"} onClick={send} disabled={!signed || !!stale || busy !== null} className="h-11 justify-start rounded-xl">
+          {busy === "send" ? <Spinner /> : <Send className="size-4" />}
+          <span className="font-mono text-xs opacity-60">2</span> Call the API
+        </Button>
       </div>
-      {err && (
-        <div className="banner" style={{ fontSize: "0.86rem" }}>
-          {err}
-        </div>
-      )}
-      {signed && (
-        <div>
-          <div className="spread" style={{ marginBottom: 6 }}>
-            <span className="label">Signed message</span>
-            <CopyButton text={signed.message} />
-          </div>
-          <div className="mono" style={{ fontSize: "0.8rem", padding: "10px 12px", background: "var(--surface-2)", borderRadius: 10, overflowWrap: "anywhere" }}>
-            {signed.message}
-          </div>
-          <div className="spread" style={{ margin: "14px 0 6px" }}>
-            <span className="label">Same request from a terminal</span>
-            <CopyButton text={curl} />
-          </div>
-          <pre className="code">{curl}</pre>
-        </div>
-      )}
-      {res && (
-        <div>
-          <div className="row" style={{ marginBottom: 6 }}>
-            <span className={`http ${res.status === 200 ? "s200" : "s402"}`}>{res.status}</span>
-            <span className="muted" style={{ fontSize: "0.84rem" }}>
-              {res.ms} ms from {new URL(signed!.url).host}
-            </span>
-          </div>
-          <pre className="code" style={{ maxHeight: 360, overflow: "auto" }}>
-            {res.body || "(empty body)"}
-          </pre>
-        </div>
-      )}
+      {stale && <p className="text-xs text-warning">Signature expired. Sign again.</p>}
+      {err && <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{err}</p>}
+
+      <AnimatePresence>
+        {signed && (
+          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
+            <div className="flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-2">
+              <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground" title={signed.message}>
+                {signed.message}
+              </span>
+              <CopyButton text={signed.message} label="Copy signed message" />
+            </div>
+            <CodeTabs tabs={[{ key: "curl", label: "curl", plain: curl }]} title="same request from a terminal" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {res && (
+          <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className={cn("overflow-hidden rounded-xl border", res.status === 200 ? "border-success/40" : "border-warning/40")}>
+            <div className={cn("flex items-center gap-2 px-3 py-2 text-xs", res.status === 200 ? "bg-success/10" : "bg-warning/10")}>
+              <Http code={res.status} />
+              <span className="text-muted-foreground">
+                {res.ms} ms · {new URL(signed!.url).host}
+              </span>
+            </div>
+            <pre className="max-h-80 overflow-auto bg-[#0b0f17] p-4 font-mono text-[12px] leading-relaxed text-[#d6deeb]">{res.body || "(empty body)"}</pre>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

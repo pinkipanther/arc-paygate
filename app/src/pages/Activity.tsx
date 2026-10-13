@@ -1,20 +1,35 @@
-import { useMemo, useState } from "react";
-import type { Address } from "viem";
-import { Ticket } from "../components/icons";
+import { useMemo, useState, type ReactNode } from "react";
+import { ArrowDownToLine, ArrowRightLeft, PencilLine, PlusCircle, Ticket, Zap } from "lucide-react";
+import { BlurFade } from "@/components/ui/blur-fade";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
+import { Empty, PageHeader, TxLink } from "../components/common";
 import { NotDeployed } from "../components/NotDeployed";
-import { Address as Addr, Empty, TxLink } from "../components/ui";
 import { ago, dateTime, intFmt, perWindow, sameAddr, short, usdc } from "../lib/format";
 import { useActivity, useResources, type ActivityItem } from "../lib/hooks";
 import { useApp } from "../lib/store";
 
 type Filter = "all" | "pay" | "list" | "out";
-const KIND: Record<ActivityItem["kind"], { label: string; tone: string; group: Filter }> = {
-  Paid: { label: "Pass bought", tone: "ok", group: "pay" },
-  ResourceCreated: { label: "Listed", tone: "blue", group: "list" },
-  ResourceUpdated: { label: "Updated", tone: "", group: "list" },
-  ResourceTransferred: { label: "Transferred", tone: "warn", group: "list" },
-  Withdrawn: { label: "Withdrawn", tone: "", group: "out" },
+const KIND: Record<ActivityItem["kind"], { label: string; cls: string; icon: typeof Zap; group: Filter }> = {
+  Paid: { label: "Pass bought", cls: "bg-success/12 text-success", icon: Zap, group: "pay" },
+  ResourceCreated: { label: "Listed", cls: "bg-primary/12 text-primary", icon: PlusCircle, group: "list" },
+  ResourceUpdated: { label: "Updated", cls: "bg-muted text-muted-foreground", icon: PencilLine, group: "list" },
+  ResourceTransferred: { label: "Transferred", cls: "bg-warning/15 text-warning", icon: ArrowRightLeft, group: "list" },
+  Withdrawn: { label: "Withdrawn", cls: "bg-brand-2/12 text-brand-2", icon: ArrowDownToLine, group: "out" },
 };
+
+function Kind({ k }: { k: ActivityItem["kind"] }) {
+  const m = KIND[k];
+  return (
+    <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap", m.cls)}>
+      <m.icon className="size-3.5" />
+      {m.label}
+    </span>
+  );
+}
 
 export function Activity() {
   const { net } = useApp();
@@ -27,138 +42,142 @@ export function Activity() {
   const nameOf = (id: unknown) => {
     const k = String(id);
     return (
-      <a href={`#/r/${k}`} style={{ fontWeight: 600, color: "var(--ink)" }}>
+      <a href={`#/r/${k}`} className="font-medium hover:text-primary">
         {names.get(k) ?? `#${k}`}
       </a>
     );
   };
 
-  function detail(x: ActivityItem) {
+  function detail(x: ActivityItem): [ReactNode, string] {
     const a = x.args;
     switch (x.kind) {
       case "Paid":
-        return (
-          <>
-            {nameOf(a.id)}
-            <div className="muted" style={{ fontSize: "0.8rem" }}>
-              {a.payer === a.beneficiary ? short(a.payer as string) : `${short(a.payer as string)} for ${short(a.beneficiary as string)}`} · until {dateTime(a.until as bigint)}
-            </div>
-          </>
-        );
+        return [nameOf(a.id), `${a.payer === a.beneficiary ? short(a.payer as string) : `${short(a.payer as string)} → ${short(a.beneficiary as string)}`} · until ${dateTime(a.until as bigint)}`];
       case "ResourceCreated":
       case "ResourceUpdated":
-        return (
-          <>
-            {nameOf(a.id)}
-            <div className="muted" style={{ fontSize: "0.8rem" }}>
-              {usdc(a.price as bigint)} USDC per {perWindow(Number(a.window))}{x.kind === "ResourceUpdated" && a.active === false ? " · paused" : ""}
-            </div>
-          </>
-        );
+        return [nameOf(a.id), `${usdc(a.price as bigint)} USDC / ${perWindow(Number(a.window))}${x.kind === "ResourceUpdated" && a.active === false ? " · paused" : ""}`];
       case "ResourceTransferred":
-        return (
-          <>
-            {nameOf(a.id)}
-            <div className="muted" style={{ fontSize: "0.8rem" }}>
-              {short(a.from as string)} → {short(a.to as string)}
-            </div>
-          </>
-        );
+        return [nameOf(a.id), `${short(a.from as string)} → ${short(a.to as string)}`];
       case "Withdrawn":
-        return (
-          <>
-            <Addr value={a.seller as Address} link={false} />
-            <div className="muted" style={{ fontSize: "0.8rem" }}>
-              {sameAddr(a.seller as string, a.to as string) ? "to the seller's own wallet" : `to ${short(a.to as string)}`}
-            </div>
-          </>
-        );
+        return [<span className="font-mono text-sm">{short(a.seller as string)}</span>, sameAddr(a.seller as string, a.to as string) ? "to own wallet" : `to ${short(a.to as string)}`];
     }
   }
 
-  const amount = (x: ActivityItem) => (x.kind === "Paid" || x.kind === "Withdrawn" ? `${usdc(x.args.amount as bigint)} USDC` : "—");
+  const amount = (x: ActivityItem) => (x.kind === "Paid" || x.kind === "Withdrawn" ? usdc(x.args.amount as bigint) : null);
 
   return (
-    <div className="wrap">
-      <div className="page-h">
-        <div>
-          <h1>Activity</h1>
-          <p>Every purchase, listing and withdrawal on {net.label}, read straight from the contract's events.</p>
-        </div>
-        <div className="seg" role="group" aria-label="Filter">
-          {(
-            [
-              ["all", "All"],
-              ["pay", "Purchases"],
-              ["list", "Listings"],
-              ["out", "Withdrawals"],
-            ] as [Filter, string][]
-          ).map(([k, l]) => (
-            <button key={k} aria-pressed={f === k} onClick={() => setF(k)}>
-              {l}
-            </button>
-          ))}
-        </div>
-      </div>
+    <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+      <PageHeader
+        title="Activity"
+        sub="Every pass, listing and withdrawal, straight from contract events."
+        action={
+          <Tabs value={f} onValueChange={(v) => setF(v as Filter)}>
+            <TabsList className="rounded-full">
+              {(
+                [
+                  ["all", "All"],
+                  ["pay", "Passes"],
+                  ["list", "Listings"],
+                  ["out", "Payouts"],
+                ] as [Filter, string][]
+              ).map(([k, l]) => (
+                <TabsTrigger key={k} value={k} className="rounded-full">
+                  {l}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        }
+      />
 
       {!net.contract ? (
         <NotDeployed />
       ) : (
-        <div className="card">
+        <BlurFade>
+        <div className="overflow-hidden rounded-2xl border bg-card">
           {act.error && (
-            <div className="banner" style={{ margin: 16 }}>
-              Some history couldn't load: {act.error}
-              <button className="btn btn-secondary btn-sm" onClick={act.reload}>
+            <div className="flex items-center justify-between gap-3 border-b bg-destructive/5 p-4 text-sm">
+              Some history didn't load.
+              <Button variant="outline" size="sm" onClick={act.reload}>
                 Retry
-              </button>
+              </Button>
             </div>
           )}
           {act.loading && !act.data ? (
-            <div className="card-b stack">
+            <div className="space-y-3 p-5">
               {[0, 1, 2, 3].map((i) => (
-                <div key={i} className="skel" style={{ height: 40 }} />
+                <Skeleton key={i} className="h-12" />
               ))}
             </div>
           ) : rows.length === 0 ? (
             <Empty icon={<Ticket />} title="No activity yet">
-              Purchases, listings and withdrawals appear here a few seconds after they settle.
+              Events show up seconds after they settle.
             </Empty>
           ) : (
-            <div className="tablewrap">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Event</th>
-                    <th>Details</th>
-                    <th className="r">Amount</th>
-                    <th>When</th>
-                    <th>Transaction</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((x) => (
-                    <tr key={`${x.tx}-${x.logIndex}`}>
-                      <td>
-                        <span className={`pill ${KIND[x.kind].tone}`}>{KIND[x.kind].label}</span>
-                      </td>
-                      <td style={{ whiteSpace: "normal", minWidth: 220 }}>{detail(x)}</td>
-                      <td className="r mono">{amount(x)}</td>
-                      <td>
-                        <div>{x.time ? ago(x.time) : "—"}</div>
-                        <div className="muted mono" style={{ fontSize: "0.76rem" }}>
-                          block {intFmt(x.block)}
+            <>
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="pl-5">Event</TableHead>
+                      <TableHead>Details</TableHead>
+                      <TableHead className="text-right">USDC</TableHead>
+                      <TableHead>When</TableHead>
+                      <TableHead className="pr-5">Tx</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rows.map((x) => {
+                      const [title, sub] = detail(x);
+                      const amt = amount(x);
+                      return (
+                        <TableRow key={`${x.tx}-${x.logIndex}`}>
+                          <TableCell className="pl-5">
+                            <Kind k={x.kind} />
+                          </TableCell>
+                          <TableCell className="whitespace-normal">
+                            <div>{title}</div>
+                            <div className="text-xs text-muted-foreground">{sub}</div>
+                          </TableCell>
+                          <TableCell className="text-right font-mono tabular-nums">{amt ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                          <TableCell>
+                            <div className="text-sm">{x.time ? ago(x.time) : "—"}</div>
+                            <div className="font-mono text-[11px] text-muted-foreground">#{intFmt(x.block)}</div>
+                          </TableCell>
+                          <TableCell className="pr-5">
+                            <TxLink hash={x.tx} />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+              <ul className="divide-y md:hidden">
+                {rows.map((x, i) => {
+                  const [title, sub] = detail(x);
+                  const amt = amount(x);
+                  return (
+                    <BlurFade key={`${x.tx}-${x.logIndex}`} delay={Math.min(i, 10) * 0.03}>
+                      <li className="flex items-start gap-3 p-4">
+                        <div className="min-w-0 flex-1 space-y-1.5">
+                          <Kind k={x.kind} />
+                          <div className="text-sm">{title}</div>
+                          <div className="text-xs text-muted-foreground">{sub}</div>
                         </div>
-                      </td>
-                      <td>
-                        <TxLink hash={x.tx} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        <div className="shrink-0 text-right">
+                          {amt && <div className="font-mono text-sm tabular-nums">{amt}</div>}
+                          <div className="text-xs text-muted-foreground">{x.time ? ago(x.time) : ""}</div>
+                        </div>
+                      </li>
+                    </BlurFade>
+                  );
+                })}
+              </ul>
+            </>
           )}
         </div>
+        </BlurFade>
       )}
     </div>
   );

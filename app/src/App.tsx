@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
+import { Compass } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Toaster } from "@/components/ui/sonner";
+import { Wordmark } from "./components/brand";
+import { Empty, ExtLink } from "./components/common";
 import { Header } from "./components/Header";
-import { Toasts } from "./components/Toasts";
 import { WalletModal } from "./components/WalletModal";
-import { Box } from "./components/icons";
-import { Empty } from "./components/ui";
-import { NETWORKS, REPO } from "./config";
+import { REPO } from "./config";
 import { useApp } from "./lib/store";
 import { Activity } from "./pages/Activity";
 import { Agents } from "./pages/Agents";
@@ -43,10 +45,16 @@ function route(h: string) {
       return <Agents />;
     default:
       return (
-        <div className="wrap">
-          <div className="card">
-            <Empty icon={<Box />} title="That page doesn't exist" action={<a className="btn btn-secondary" href="#/">Go to the overview</a>} />
-          </div>
+        <div className="mx-auto max-w-6xl px-4 py-16">
+          <Empty
+            icon={<Compass />}
+            title="Page not found"
+            action={
+              <Button asChild variant="outline" className="rounded-full">
+                <a href="#/">Go home</a>
+              </Button>
+            }
+          />
         </div>
       );
   }
@@ -54,46 +62,30 @@ function route(h: string) {
 
 export function App() {
   const h = useHash();
-  const { net, setNet } = useApp();
-  const live = (["testnet", "mainnet"] as const).find((k) => NETWORKS[k].contract);
+  const { net } = useApp();
   return (
-    <>
+    <div className="flex min-h-svh flex-col">
       <Header route={h} />
-      {net.simulated && (
-        <div className="demo-strip" role="note">
-          <div className="wrap">
-            <span className="tag">Demo</span>
-            <span className="grow">
-              <b>The audited PayGate contract, running in your browser.</b> Your demo wallet holds 25 test USDC: list, buy and use a pass. Nothing here touches Arc, and it resets on reload.
-            </span>
-            {live && (
-              <button type="button" onClick={() => setNet(live)}>
-                Use {NETWORKS[live].label} →
-              </button>
-            )}
+      <main key={net.key} className="flex-1">
+        {route(h)}
+      </main>
+      <footer className="border-t">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-8 sm:px-6">
+          <div className="flex items-center gap-4">
+            <Wordmark className="text-sm [&_svg]:size-6" />
+            <span className="text-xs text-muted-foreground">MIT · no owner · no fees</span>
           </div>
-        </div>
-      )}
-      <main key={net.key}>{route(h)}</main>
-      <footer className="site">
-        <div className="wrap spread">
-          <div className="row">
-            <span>PayGate · MIT</span>
-            <a href={REPO} target="_blank" rel="noopener noreferrer">
-              Source &amp; audit
+          <div className="flex items-center gap-5">
+            <a href="#/agents" className="text-sm text-muted-foreground hover:text-foreground">
+              Docs
             </a>
-            <a href="#/agents">Integration guide</a>
-            {net.explorer && net.contract && (
-              <a href={`${net.explorer}/address/${net.contract}`} target="_blank" rel="noopener noreferrer">
-                Contract on {net.short}
-              </a>
-            )}
+            <ExtLink href={REPO}>GitHub</ExtLink>
+            {net.explorer && net.contract && <ExtLink href={`${net.explorer}/address/${net.contract}`}>Contract</ExtLink>}
           </div>
-          <span>Payments settle in native USDC on Arc. No owner, no fees.</span>
         </div>
       </footer>
       <WalletModal />
-      <Toasts />
-    </>
+      <Toaster position="bottom-right" richColors closeButton />
+    </div>
   );
 }

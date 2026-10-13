@@ -75,7 +75,7 @@ export function ExtLink({ href, children, className }: { href: string; children:
 export function Empty({ icon, title, children, action }: { icon?: ReactNode; title: string; children?: ReactNode; action?: ReactNode }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 px-6 py-14 text-center">
-      {icon && <div className="grid size-12 place-items-center rounded-2xl border bg-muted/50 text-muted-foreground [&_svg]:size-5">{icon}</div>}
+      {icon && <div className="grid size-10 place-items-center rounded-lg border text-muted-foreground [&_svg]:size-5">{icon}</div>}
       <h3 className="font-semibold tracking-tight">{title}</h3>
       {children && <p className="max-w-sm text-sm text-muted-foreground">{children}</p>}
       {action}
@@ -86,10 +86,7 @@ export function Empty({ icon, title, children, action }: { icon?: ReactNode; tit
 export function StatusBadge({ active }: { active: boolean }) {
   return active ? (
     <Badge variant="outline" className="gap-1.5 border-success/30 bg-success/10 text-success">
-      <span className="relative flex size-1.5">
-        <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-60" />
-        <span className="relative inline-flex size-1.5 rounded-full bg-success" />
-      </span>
+      <span className="size-1.5 rounded-full bg-success" />
       On sale
     </Badge>
   ) : (

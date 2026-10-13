@@ -1,14 +1,11 @@
 import { useMemo, useState } from "react";
 import { ArrowUpRight, PackageOpen, Plus, Search } from "lucide-react";
-import { BlurFade } from "@/components/ui/blur-fade";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { MagicCard } from "@/components/ui/magic-card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useTheme } from "@/lib/theme";
 import { Empty, PageHeader, StatusBadge } from "../components/common";
 import { NotDeployed } from "../components/NotDeployed";
 import { intFmt, perWindow, usdc } from "../lib/format";
@@ -18,10 +15,9 @@ import { useApp } from "../lib/store";
 type Sort = "new" | "sold" | "cheap" | "pricey";
 
 function ResourceCard({ r }: { r: Resource }) {
-  const { resolvedTheme } = useTheme();
   return (
     <a href={`#/r/${r.id}`} className="group block h-full">
-      <MagicCard className="h-full rounded-2xl" gradientColor={resolvedTheme === "dark" ? "#1c2740" : "#e6effb"} gradientFrom="#2f80d8" gradientTo="#8b5cf6">
+      <div className="h-full rounded-xl border bg-card transition-colors group-hover:border-foreground/20">
         <div className="flex h-full flex-col p-5">
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="font-mono">
@@ -32,7 +28,7 @@ function ResourceCard({ r }: { r: Resource }) {
                 {r.meta.kind === "api" ? "API" : r.meta.kind}
               </Badge>
             )}
-            <ArrowUpRight className="ml-auto size-4 text-muted-foreground transition-all group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary" />
+            <ArrowUpRight className="ml-auto size-4 text-muted-foreground group-hover:text-foreground" />
           </div>
           <h3 className="mt-4 text-lg font-semibold tracking-tight">{r.meta.name}</h3>
           <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{r.meta.desc || r.meta.host || "No endpoint listed"}</p>
@@ -47,7 +43,7 @@ function ResourceCard({ r }: { r: Resource }) {
             </div>
           </div>
         </div>
-      </MagicCard>
+      </div>
     </a>
   );
 }
@@ -130,16 +126,14 @@ export function Market() {
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {res.loading && !res.data
-              ? [0, 1, 2].map((i) => <Skeleton key={i} className="h-52 rounded-2xl" />)
-              : rows.map((r, i) => (
-                  <BlurFade key={r.id.toString()} delay={0.04 * i} className="h-full">
-                    <ResourceCard r={r} />
-                  </BlurFade>
+              ? [0, 1, 2].map((i) => <Skeleton key={i} className="h-52 rounded-xl" />)
+              : rows.map((r) => (
+                  <ResourceCard key={r.id.toString()} r={r} />
                 ))}
           </div>
 
           {res.data && rows.length === 0 && (
-            <div className="rounded-2xl border">
+            <div className="rounded-xl border">
               {res.data.length === 0 ? (
                 <Empty
                   icon={<PackageOpen />}

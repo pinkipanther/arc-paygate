@@ -1,13 +1,11 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { formatUnits, getAddress } from "viem";
 import { ArrowDownToLine, PackageOpen, Pencil, Plus, Send, Wallet } from "lucide-react";
-import { BlurFade } from "@/components/ui/blur-fade";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NumberTicker } from "@/components/ui/number-ticker";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
@@ -154,7 +152,7 @@ function CreateForm() {
 
   return (
     <div id="new" className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
-      <form className="rounded-2xl border bg-card p-6" onSubmit={submit} noValidate>
+      <form className="rounded-xl border bg-card p-6" onSubmit={submit} noValidate>
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-lg font-semibold tracking-tight">New listing</h2>
           <span className="text-xs text-muted-foreground">One transaction</span>
@@ -300,7 +298,7 @@ function WithdrawToDialog({ amount, onClose }: { amount: bigint; onClose: () => 
 
 function Tile({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
   return (
-    <div className={cn("rounded-2xl border bg-card p-5", className)}>
+    <div className={cn("rounded-xl border bg-card p-5", className)}>
       <Eyebrow>{label}</Eyebrow>
       <div className="mt-2">{children}</div>
     </div>
@@ -354,9 +352,8 @@ export function Sell() {
         </div>
       ) : (
         <div className="space-y-8">
-          <BlurFade>
             <div className="grid gap-4 md:grid-cols-[1.4fr_1fr_1fr]">
-              <Tile label="Ready to withdraw" className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-card to-card">
+              <Tile label="Ready to withdraw">
                 <div className="font-mono text-4xl font-semibold tracking-tighter tabular-nums">
                   {wallet ? (bal === null ? "…" : usdc(bal)) : "—"} <span className="font-sans text-base font-normal tracking-normal text-muted-foreground">USDC</span>
                 </div>
@@ -379,18 +376,16 @@ export function Sell() {
                 </div>
               </Tile>
               <Tile label="Passes sold">
-                <div className="font-mono text-4xl font-semibold tracking-tighter tabular-nums">{wallet ? <NumberTicker value={Number(sold)} /> : "—"}</div>
+                <div className="font-mono text-4xl font-semibold tracking-tighter tabular-nums">{wallet ? intFmt(sold) : "—"}</div>
                 <p className="mt-1 text-xs text-muted-foreground">{wallet ? `${intFmt(mine.length)} listings` : ""}</p>
               </Tile>
               <Tile label="Lifetime revenue">
-                <div className="font-mono text-4xl font-semibold tracking-tighter tabular-nums">{wallet ? <NumberTicker value={Number(lifetime) / 1e18} decimalPlaces={2} /> : "—"}</div>
+                <div className="font-mono text-4xl font-semibold tracking-tighter tabular-nums">{wallet ? usdc(lifetime) : "—"}</div>
                 <p className="mt-1 text-xs text-muted-foreground">No fees. No owner.</p>
               </Tile>
             </div>
-          </BlurFade>
 
-          <BlurFade delay={0.08}>
-            <div className="overflow-hidden rounded-2xl border bg-card">
+            <div className="overflow-hidden rounded-xl border bg-card">
               <div className="flex items-center justify-between border-b px-5 py-4">
                 <h2 className="font-semibold tracking-tight">Your listings</h2>
                 <Button variant="outline" size="sm" className="rounded-full" onClick={() => document.getElementById("new")?.scrollIntoView({ behavior: "smooth", block: "start" })}>
@@ -456,11 +451,8 @@ export function Sell() {
                 </Table>
               )}
             </div>
-          </BlurFade>
 
-          <BlurFade delay={0.12}>
             <CreateForm />
-          </BlurFade>
         </div>
       )}
       {edit && <EditDialog r={edit} onClose={() => setEdit(null)} />}

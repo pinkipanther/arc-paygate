@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import { Code2, Coins, FileWarning, Fingerprint, MessageSquareReply } from "lucide-react";
-import { BlurFade } from "@/components/ui/blur-fade";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,7 +10,6 @@ import { useApp } from "../lib/store";
 
 function Step({ n, icon: Icon, title, text, children }: { n: number; icon: typeof Coins; title: string; text: ReactNode; children: ReactNode }) {
   return (
-    <BlurFade inView>
       <section className="grid gap-5 md:grid-cols-[260px_minmax(0,1fr)]">
         <div>
           <div className="flex items-center gap-3">
@@ -25,7 +23,6 @@ function Step({ n, icon: Icon, title, text, children }: { n: number; icon: typeo
         </div>
         <div className="min-w-0">{children}</div>
       </section>
-    </BlurFade>
   );
 }
 
@@ -131,8 +128,7 @@ X-PAYMENT-RESPONSE: <base64 {"success":true,"accessUntil":1791739200}>
           <CodeTabs tabs={[{ key: "http", label: "http", plain: retry }]} title="request → response" />
         </Step>
 
-        <BlurFade inView>
-          <Tabs defaultValue="fns" className="rounded-2xl border bg-card p-2">
+          <Tabs defaultValue="fns" className="rounded-xl border bg-card p-2">
             <TabsList className="m-2">
               <TabsTrigger value="fns">Functions</TabsTrigger>
               <TabsTrigger value="errs">Errors</TabsTrigger>
@@ -170,9 +166,8 @@ X-PAYMENT-RESPONSE: <base64 {"success":true,"accessUntil":1791739200}>
               </Table>
             </TabsContent>
           </Tabs>
-        </BlurFade>
 
-        <div className="flex items-start gap-3 rounded-2xl border border-dashed p-5 text-sm text-muted-foreground">
+        <div className="flex items-start gap-3 rounded-xl border border-dashed p-5 text-sm text-muted-foreground">
           <FileWarning className="mt-0.5 size-4 shrink-0" />
           <p>
             A pass is a time-boxed entitlement per address. No refunds, no delivery guarantee: serving data is the seller's job. Anyone holding the key can use the pass.

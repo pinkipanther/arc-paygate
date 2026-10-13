@@ -1,4 +1,3 @@
-import { motion } from "motion/react";
 import { Check, ChevronDown, LogOut, Monitor, Moon, Sun, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,7 +8,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { AnimatedShinyText } from "@/components/ui/animated-shiny-text";
 import { cn } from "@/lib/utils";
 import { useTheme, type Theme } from "@/lib/theme";
 import { NETWORKS, NET_KEYS } from "../config";
@@ -38,7 +36,7 @@ function Dot({ tone }: { tone: "ok" | "warn" | "bad" | "idle" }) {
     <span
       className={cn(
         "size-2 rounded-full",
-        tone === "ok" && "bg-success shadow-[0_0_0_3px] shadow-success/20",
+        tone === "ok" && "bg-success",
         tone === "warn" && "bg-warning",
         tone === "bad" && "bg-destructive",
         tone === "idle" && "bg-muted-foreground/40",
@@ -127,7 +125,7 @@ function WalletButton() {
           {wallet.icon ? (
             <img src={wallet.icon} alt="" className="size-6 rounded-full" />
           ) : (
-            <span className="grid size-6 place-items-center rounded-full bg-gradient-to-br from-primary to-brand-2 text-white">
+            <span className="grid size-6 place-items-center rounded-full bg-muted text-muted-foreground">
               <Wallet className="size-3.5" />
             </span>
           )}
@@ -173,16 +171,9 @@ function NavLinks({ route, compact }: { route: string; compact?: boolean }) {
             className={cn(
               "relative rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors",
               compact && "flex-1 px-2 text-center",
-              on ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+              on ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground",
             )}
           >
-            {on && (
-              <motion.span
-                layoutId={compact ? "nav-pill-m" : "nav-pill"}
-                className="absolute inset-0 -z-10 rounded-full bg-muted"
-                transition={{ type: "spring", bounce: 0.2, duration: 0.5 }}
-              />
-            )}
             {label}
           </a>
         );
@@ -195,7 +186,7 @@ export function Header({ route }: { route: string }) {
   const { net, setNet } = useApp();
   const live = (["testnet", "mainnet"] as const).find((k) => NETWORKS[k].contract);
   return (
-    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/70 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-4 sm:px-6">
         <a href="#/" aria-label="PayGate home" className="shrink-0">
           <Wordmark className="[&>span:last-child]:max-[400px]:hidden" />
@@ -213,12 +204,12 @@ export function Header({ route }: { route: string }) {
         <NavLinks route={route} compact />
       </div>
       {net.simulated && (
-        <div className="border-t border-border/60 bg-primary/[0.06]">
+        <div className="border-t bg-muted/40">
           <div className="mx-auto flex max-w-6xl items-center justify-center gap-2 px-4 py-1.5 text-center text-xs sm:px-6">
-            <span className="rounded bg-primary px-1.5 py-px font-mono text-[10px] font-semibold uppercase tracking-wider text-primary-foreground">Demo</span>
-            <AnimatedShinyText className="mx-0 max-w-none truncate text-xs">
-              Real contract, in your browser<span className="hidden sm:inline"> · 25 test USDC to play with</span>
-            </AnimatedShinyText>
+            <span className="rounded border px-1.5 py-px font-mono text-[10px] font-medium uppercase tracking-wider">Demo</span>
+            <span className="truncate text-muted-foreground">
+              Real contract, in your browser<span className="hidden sm:inline"> · 25 test USDC to try it</span>
+            </span>
             {live && (
               <button type="button" onClick={() => setNet(live)} className="ml-1 font-medium text-primary hover:underline">
                 Use {NETWORKS[live].short} →

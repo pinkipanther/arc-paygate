@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
 import { Lock, PenLine, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -112,9 +111,8 @@ export function UsePass({ r, held }: { r: Resource; held: boolean }) {
       {stale && <p className="text-xs text-warning">Signature expired. Sign again.</p>}
       {err && <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{err}</p>}
 
-      <AnimatePresence>
-        {signed && (
-          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
+      {signed && (
+          <div className="space-y-3">
             <div className="flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-2">
               <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground" title={signed.message}>
                 {signed.message}
@@ -122,13 +120,11 @@ export function UsePass({ r, held }: { r: Resource; held: boolean }) {
               <CopyButton text={signed.message} label="Copy signed message" />
             </div>
             <CodeTabs tabs={[{ key: "curl", label: "curl", plain: curl }]} title="same request from a terminal" />
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
 
-      <AnimatePresence>
-        {res && (
-          <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className={cn("overflow-hidden rounded-xl border", res.status === 200 ? "border-success/40" : "border-warning/40")}>
+      {res && (
+          <div className={cn("overflow-hidden rounded-xl border", res.status === 200 ? "border-success/40" : "border-warning/40")}>
             <div className={cn("flex items-center gap-2 px-3 py-2 text-xs", res.status === 200 ? "bg-success/10" : "bg-warning/10")}>
               <Http code={res.status} />
               <span className="text-muted-foreground">
@@ -136,9 +132,8 @@ export function UsePass({ r, held }: { r: Resource; held: boolean }) {
               </span>
             </div>
             <pre className="max-h-80 overflow-auto bg-[#0b0f17] p-4 font-mono text-[12px] leading-relaxed text-[#d6deeb]">{res.body || "(empty body)"}</pre>
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
     </div>
   );
 }

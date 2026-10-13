@@ -14,13 +14,8 @@ export function CodeTabs({ tabs, className, title }: { tabs: CodeTab[]; classNam
   const [k, setK] = useState(tabs[0].key);
   const t = tabs.find((x) => x.key === k) ?? tabs[0];
   return (
-    <div className={cn("overflow-hidden rounded-xl border border-white/10 bg-[#0b0f17] text-[#d6deeb] shadow-xl shadow-black/10", className)}>
+    <div className={cn("overflow-hidden rounded-xl border bg-[#0d1117] text-[#d6deeb] dark:bg-[#0a0d12]", className)}>
       <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
-        <div className="mr-1 flex gap-1.5" aria-hidden="true">
-          <span className="size-2.5 rounded-full bg-white/15" />
-          <span className="size-2.5 rounded-full bg-white/15" />
-          <span className="size-2.5 rounded-full bg-white/15" />
-        </div>
         {title && tabs.length === 1 ? (
           <span className="font-mono text-xs text-white/50">{title}</span>
         ) : (

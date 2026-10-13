@@ -1,10 +1,8 @@
 import { useState } from "react";
 import { getAddress, type Address } from "viem";
-import { AnimatePresence, motion } from "motion/react";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ShineBorder } from "@/components/ui/shine-border";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { duration, isAddress, usdc } from "../lib/format";
@@ -78,11 +76,10 @@ export function BuyPanel({ r, held, onBought }: { r: Resource; held: boolean; on
             : `Pay ${usdc(r.price)} USDC`;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border bg-card p-6 shadow-sm">
-      <ShineBorder shineColor={["#2f80d8", "#8b5cf6", "#22c55e"]} borderWidth={1.5} duration={12} />
+    <div className="rounded-xl border bg-card p-6">
       <Eyebrow>{held ? "Extend your pass" : "Buy a pass"}</Eyebrow>
       <div className="mt-3 flex items-baseline gap-2">
-        <span className="font-mono text-5xl font-semibold tracking-tighter tabular-nums">{usdc(r.price)}</span>
+        <span className="font-mono text-4xl font-semibold tracking-tight tabular-nums">{usdc(r.price)}</span>
         <span className="text-sm text-muted-foreground">USDC / {duration(r.window)}</span>
       </div>
       {held && <p className="mt-2 text-xs text-muted-foreground">{free ? "Free passes reset, they don't stack." : `Adds ${duration(r.window)} to your time left.`}</p>}
@@ -93,9 +90,8 @@ export function BuyPanel({ r, held, onBought }: { r: Resource; held: boolean; on
           <TabsTrigger value="other">For an agent</TabsTrigger>
         </TabsList>
       </Tabs>
-      <AnimatePresence initial={false}>
-        {forOther && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+      {forOther && (
+          <div>
             <Input
               className="mt-3 font-mono text-xs"
               placeholder="0x… agent address"
@@ -106,21 +102,16 @@ export function BuyPanel({ r, held, onBought }: { r: Resource; held: boolean; on
               spellCheck={false}
               autoComplete="off"
             />
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
 
       <Button size="lg" className="mt-4 h-12 w-full rounded-xl text-base" disabled={busy || (!!wallet && (!r.active || !otherOk))} onClick={buy}>
         {busy && <Spinner />}
         {label}
       </Button>
 
-      <AnimatePresence>
-        {stage && (
-          <motion.ol
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
+      {stage && (
+          <ol
             className="mt-4 grid grid-cols-4 gap-1.5"
             aria-label="Payment progress"
           >
@@ -129,7 +120,7 @@ export function BuyPanel({ r, held, onBought }: { r: Resource; held: boolean; on
               const now = i === idx && stage !== "done";
               return (
                 <li key={s} className="flex flex-col gap-1.5">
-                  <span className={cn("h-1 rounded-full transition-colors duration-500", done ? "bg-success" : now ? "animate-pulse bg-primary" : "bg-muted")} />
+                  <span className={cn("h-1 rounded-full transition-colors duration-500", done ? "bg-success" : now ? "bg-primary" : "bg-muted")} />
                   <span className={cn("flex items-center gap-1 text-[11px]", done ? "text-success" : now ? "text-foreground" : "text-muted-foreground")}>
                     {done && <Check className="size-3" />}
                     {text}
@@ -137,9 +128,8 @@ export function BuyPanel({ r, held, onBought }: { r: Resource; held: boolean; on
                 </li>
               );
             })}
-          </motion.ol>
+          </ol>
         )}
-      </AnimatePresence>
 
       {wallet && bal !== null && (
         <div className="mt-5 flex items-center justify-between border-t pt-4 text-sm">

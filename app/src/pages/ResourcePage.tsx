@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { ArrowLeft, PackageX, Settings2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { BlurFade } from "@/components/ui/blur-fade";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -43,15 +42,15 @@ export function ResourcePage({ id }: { id: bigint }) {
         <Skeleton className="h-4 w-28" />
         <Skeleton className="h-10 w-1/2" />
         <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-          <Skeleton className="h-48 rounded-2xl" />
-          <Skeleton className="h-80 rounded-2xl" />
+          <Skeleton className="h-48 rounded-xl" />
+          <Skeleton className="h-80 rounded-xl" />
         </div>
       </div>,
     );
 
   if (!r)
     return wrap(
-      <div className="rounded-2xl border">
+      <div className="rounded-xl border">
         <Empty
           icon={<PackageX />}
           title={`No resource #${id} on ${net.label}`}
@@ -68,7 +67,7 @@ export function ResourcePage({ id }: { id: bigint }) {
   const solCheck = `// gate anything with one view call\nbool ok = PayGate(${net.contract}).hasAccess(buyer, ${r.id});`;
 
   const details = (
-    <Card className="rounded-2xl">
+    <Card className="rounded-xl">
       <CardHeader>
         <CardTitle>Details</CardTitle>
       </CardHeader>
@@ -104,7 +103,6 @@ export function ResourcePage({ id }: { id: bigint }) {
         <ArrowLeft className="size-4" /> Market
       </a>
 
-      <BlurFade>
         <div className="mt-5 mb-8 flex flex-wrap items-end justify-between gap-4">
           <div className="min-w-0">
             <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -130,20 +128,16 @@ export function ResourcePage({ id }: { id: bigint }) {
             </Button>
           )}
         </div>
-      </BlurFade>
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div className="min-w-0 space-y-6">
-          <BlurFade delay={0.05}>
             <Pass r={r} until={access.until} holder={wallet?.address} />
-          </BlurFade>
 
           <div className="lg:hidden">
             <BuyPanel r={r} held={held} onBought={access.reload} />
           </div>
 
-          <BlurFade delay={0.1}>
-            <Card className="rounded-2xl">
+            <Card className="rounded-xl">
               <CardHeader>
                 <CardTitle>Use your pass</CardTitle>
                 <CardAction>
@@ -154,13 +148,11 @@ export function ResourcePage({ id }: { id: bigint }) {
                 <UsePass r={r} held={held} />
               </CardContent>
             </Card>
-          </BlurFade>
 
           <div className="lg:hidden">{details}</div>
 
-          <BlurFade delay={0.15}>
             <div>
-              <Card className="rounded-2xl">
+              <Card className="rounded-xl">
                 <CardHeader>
                   <CardTitle>Integrate</CardTitle>
                   {net.explorer && (
@@ -181,14 +173,11 @@ export function ResourcePage({ id }: { id: bigint }) {
                 </CardContent>
               </Card>
             </div>
-          </BlurFade>
         </div>
 
         <div className="sticky top-24 hidden space-y-6 lg:block">
-          <BlurFade delay={0.1}>
             <BuyPanel r={r} held={held} onBought={access.reload} />
-          </BlurFade>
-          <BlurFade delay={0.15}>{details}</BlurFade>
+          {details}
         </div>
       </div>
     </>,

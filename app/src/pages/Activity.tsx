@@ -1,6 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { ArrowDownToLine, ArrowRightLeft, PencilLine, PlusCircle, Ticket, Zap } from "lucide-react";
-import { BlurFade } from "@/components/ui/blur-fade";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -93,8 +92,7 @@ export function Activity() {
       {!net.contract ? (
         <NotDeployed />
       ) : (
-        <BlurFade>
-        <div className="overflow-hidden rounded-2xl border bg-card">
+        <div className="overflow-hidden rounded-xl border bg-card">
           {act.error && (
             <div className="flex items-center justify-between gap-3 border-b bg-destructive/5 p-4 text-sm">
               Some history didn't load.
@@ -154,12 +152,11 @@ export function Activity() {
                 </Table>
               </div>
               <ul className="divide-y md:hidden">
-                {rows.map((x, i) => {
+                {rows.map((x) => {
                   const [title, sub] = detail(x);
                   const amt = amount(x);
                   return (
-                    <BlurFade key={`${x.tx}-${x.logIndex}`} delay={Math.min(i, 10) * 0.03}>
-                      <li className="flex items-start gap-3 p-4">
+                      <li key={`${x.tx}-${x.logIndex}`} className="flex items-start gap-3 p-4">
                         <div className="min-w-0 flex-1 space-y-1.5">
                           <Kind k={x.kind} />
                           <div className="text-sm">{title}</div>
@@ -170,14 +167,12 @@ export function Activity() {
                           <div className="text-xs text-muted-foreground">{x.time ? ago(x.time) : ""}</div>
                         </div>
                       </li>
-                    </BlurFade>
                   );
                 })}
               </ul>
             </>
           )}
         </div>
-        </BlurFade>
       )}
     </div>
   );

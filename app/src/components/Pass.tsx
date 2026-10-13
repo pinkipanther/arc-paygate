@@ -1,4 +1,3 @@
-import { BorderBeam } from "@/components/ui/border-beam";
 import { cn } from "@/lib/utils";
 import { countdown, duration, short, usdc } from "../lib/format";
 import { useNow, type Resource } from "../lib/hooks";
@@ -7,7 +6,7 @@ import { Http } from "./common";
 
 /**
  * The access pass: PayGate's one signature object. Unheld it reads as an offer (price, window);
- * held it turns USDC blue, gets a moving border and the stub counts down to expiry.
+ * held it turns USDC blue and the stub counts down to expiry.
  */
 export function Pass({ r, until, holder, preview, className }: { r: Resource | null; until: number; holder?: string | null; preview?: boolean; className?: string }) {
   const now = useNow();
@@ -23,7 +22,7 @@ export function Pass({ r, until, holder, preview, className }: { r: Resource | n
         aria-label={held ? "Active access pass" : "Access pass offer"}
         className={cn(
           "relative flex overflow-hidden rounded-2xl border transition-colors duration-500",
-          held ? "border-transparent bg-gradient-to-br from-[#2f80d8] via-[#2367b5] to-[#0f2c52] text-white shadow-2xl shadow-primary/30" : "bg-card shadow-sm",
+          held ? "border-transparent bg-[#1f5fb8] text-white" : "bg-card",
         )}
       >
         <div className="min-w-0 flex-1 p-5 @md:p-6">
@@ -77,11 +76,6 @@ export function Pass({ r, until, holder, preview, className }: { r: Resource | n
           )}
         </div>
 
-        {held ? (
-          <BorderBeam size={120} duration={7} colorFrom="#ffffff" colorTo="#9cc9ff" borderWidth={1.5} />
-        ) : (
-          <BorderBeam size={90} duration={9} colorFrom="#2f80d8" colorTo="#8b5cf6" borderWidth={1} className="opacity-70" />
-        )}
       </div>
     </div>
   );

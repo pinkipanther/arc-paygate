@@ -160,7 +160,7 @@ function WalletButton() {
 
 function NavLinks({ route, compact }: { route: string; compact?: boolean }) {
   return (
-    <nav className={cn("flex items-center", compact ? "gap-1 overflow-x-auto [scrollbar-width:none]" : "gap-0.5")} aria-label="Main">
+    <nav className={cn("flex items-center", compact ? "gap-1 overflow-x-auto [scrollbar-width:none]" : "gap-0.5")} aria-label={compact ? "Main (mobile)" : "Main"}>
       {NAV.map(([href, label]) => {
         const on = isCurrent(href, route);
         return (

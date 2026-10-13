@@ -8,7 +8,7 @@ import { Http } from "./common";
  * The access pass: PayGate's one signature object. Unheld it reads as an offer (price, window);
  * held it turns USDC blue and the stub counts down to expiry.
  */
-export function Pass({ r, until, holder, preview, className }: { r: Resource | null; until: number; holder?: string | null; preview?: boolean; className?: string }) {
+export function Pass({ r, until, holder, preview, kicker, className }: { r: Resource | null; until: number; holder?: string | null; preview?: boolean; kicker?: string; className?: string }) {
   const now = useNow();
   const { net } = useApp();
   const left = Math.max(0, until - now);
@@ -28,7 +28,7 @@ export function Pass({ r, until, holder, preview, className }: { r: Resource | n
         <div className="min-w-0 flex-1 p-5 @md:p-6">
           <div className="flex items-center justify-between gap-2">
             <span className={cn("font-mono text-[10.5px] uppercase tracking-[0.16em]", held ? "text-white/70" : "text-muted-foreground")}>
-              {preview ? "Preview" : `Pass · ${net.short}`}
+              {kicker ?? (preview ? "Preview" : `Pass · ${net.short}`)}
             </span>
             {held ? (
               <span className="rounded-full bg-white/15 px-2 py-0.5 text-[11px] font-semibold backdrop-blur">Valid</span>

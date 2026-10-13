@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import { Empty, PageHeader, StatusBadge } from "../components/common";
 import { NotDeployed } from "../components/NotDeployed";
 import { intFmt, perWindow, usdc } from "../lib/format";
@@ -87,7 +88,7 @@ export function Market() {
         <NotDeployed />
       ) : (
         <>
-          <div className="mb-6 flex flex-wrap items-center gap-3">
+          <div className={cn("mb-6 flex flex-wrap items-center gap-3", res.data?.length === 0 && "hidden")}>
             <div className="relative min-w-0 flex-1 sm:max-w-xs">
               <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input className="h-10 rounded-full pl-9" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search resources" />

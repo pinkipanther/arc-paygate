@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { MAX_URI } from "../config";
 import { Pass } from "../components/Pass";
@@ -69,17 +70,19 @@ function Field({ label, htmlFor, err, children, hint }: { label: string; htmlFor
   );
 }
 
-function TermsFields({ d, set, v }: { d: Draft; set: (p: Partial<Draft>) => void; v: ReturnType<typeof validate> }) {
+/** `show` turns on every error (after a submit attempt); before that only fields with input show theirs. */
+function TermsFields({ d, set, v, show = false }: { d: Draft; set: (p: Partial<Draft>) => void; v: ReturnType<typeof validate>; show?: boolean }) {
+  const nameErr = show || d.name !== "" ? v.errs.name : undefined;
   return (
     <div className="space-y-5">
-      <Field label="Name" htmlFor="f-name" err={d.name !== "" ? v.errs.name : undefined}>
-        <Input id="f-name" placeholder="Polymarket reward pools" value={d.name} onChange={(e) => set({ name: e.target.value })} maxLength={80} />
+      <Field label="Name" htmlFor="f-name" err={nameErr}>
+        <Input id="f-name" placeholder="e.g. Weather API" value={d.name} onChange={(e) => set({ name: e.target.value })} maxLength={80} aria-invalid={!!nameErr} />
       </Field>
-      <Field label="Description" htmlFor="f-desc">
-        <Textarea id="f-desc" rows={2} placeholder="What buyers get" value={d.desc} onChange={(e) => set({ desc: e.target.value })} />
+      <Field label="Description" htmlFor="f-desc" hint="Optional. One line on what buyers get.">
+        <Textarea id="f-desc" rows={2} placeholder="e.g. Hourly forecasts for 200 cities, JSON" value={d.desc} onChange={(e) => set({ desc: e.target.value })} />
       </Field>
-      <Field label="Endpoint" htmlFor="f-url" err={v.errs.url} hint="Buyers sign requests for this host.">
-        <Input id="f-url" className="font-mono text-sm" placeholder="https://api.you.com/v1/data" value={d.url} onChange={(e) => set({ url: e.target.value })} spellCheck={false} />
+      <Field label="Endpoint" htmlFor="f-url" err={v.errs.url} hint="Optional. The URL your server answers; buyers sign requests for its host.">
+        <Input id="f-url" className="font-mono text-sm" placeholder="https://api.example.com/v1/data" value={d.url} onChange={(e) => set({ url: e.target.value })} spellCheck={false} aria-invalid={!!v.errs.url} />
       </Field>
       <div className="grid gap-5 sm:grid-cols-2">
         <Field label="Price (USDC)" htmlFor="f-price" err={v.errs.price}>
@@ -118,6 +121,7 @@ function CreateForm() {
   const tx = useTx();
   const [d, setD] = useState<Draft>(blank);
   const [busy, setBusy] = useState(false);
+  const [tried, setTried] = useState(false);
   const set = (p: Partial<Draft>) => setD((x) => ({ ...x, ...p }));
   const v = validate(d);
   const preview: Resource = useMemo(
@@ -138,11 +142,17 @@ function CreateForm() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!wallet) return openWallet(true);
-    if (!v.ok || v.price === null) return;
+    setTried(true);
+    if (!v.ok || v.price === null) {
+      // after React marks the fields invalid, move focus to the first one
+      requestAnimationFrame(() => document.querySelector<HTMLElement>("#new [aria-invalid=true]")?.focus());
+      return;
+    }
     setBusy(true);
     try {
       await tx({ label: `List “${d.name.trim()}”`, functionName: "createResource", args: [v.price, v.window, v.uri], success: () => "It's in the market now." });
       setD(blank);
+      setTried(false);
     } catch {
       /* toast explains */
     } finally {
@@ -157,10 +167,10 @@ function CreateForm() {
           <h2 className="text-lg font-semibold tracking-tight">New listing</h2>
           <span className="text-xs text-muted-foreground">One transaction</span>
         </div>
-        <TermsFields d={d} set={set} v={v} />
-        <Button type="submit" size="lg" className="mt-6 h-11 w-full rounded-xl" disabled={!net.contract || busy || (!!wallet && !v.ok)}>
-          {busy ? <Spinner /> : <Plus className="size-4" />}
-          {!net.contract ? "Not deployed here" : wallet ? "List it" : "Connect wallet"}
+        <TermsFields d={d} set={set} v={v} show={tried} />
+        <Button type="submit" size="lg" className="mt-6 h-11 w-full rounded-xl" disabled={!net.contract || busy}>
+          {busy ? <Spinner /> : wallet ? <Plus className="size-4" /> : <Wallet className="size-4" />}
+          {!net.contract ? "Not deployed here" : wallet ? "List it" : "Connect wallet to list"}
         </Button>
       </form>
       <div className="space-y-3 lg:sticky lg:top-24">
@@ -201,7 +211,7 @@ function EditDialog({ r, onClose }: { r: Resource; onClose: () => void }) {
           <DialogTitle>Edit #{r.id.toString()}</DialogTitle>
           <DialogDescription>Price or window changes make in-flight buys revert, never overcharge.</DialogDescription>
         </DialogHeader>
-        <TermsFields d={d} set={set} v={v} />
+        <TermsFields d={d} set={set} v={v} show />
         <label className="flex items-center gap-3 rounded-xl border p-3 text-sm">
           <Switch checked={active} onCheckedChange={setActive} />
           {active ? "On sale" : "Paused · existing passes keep working"}
@@ -296,15 +306,6 @@ function WithdrawToDialog({ amount, onClose }: { amount: bigint; onClose: () => 
   );
 }
 
-function Tile({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
-  return (
-    <div className={cn("rounded-xl border bg-card p-5", className)}>
-      <Eyebrow>{label}</Eyebrow>
-      <div className="mt-2">{children}</div>
-    </div>
-  );
-}
-
 export function Sell() {
   const { net, wallet, openWallet } = useApp();
   const res = useResources();
@@ -341,6 +342,8 @@ export function Sell() {
     }
   }
 
+  const selling = !!wallet && (mine.length > 0 || (bal ?? 0n) > 0n);
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
       <PageHeader title="Sell access" sub="List an endpoint, set a price, collect USDC." />
@@ -352,61 +355,51 @@ export function Sell() {
         </div>
       ) : (
         <div className="space-y-8">
-            <div className="grid gap-4 md:grid-cols-[1.4fr_1fr_1fr]">
-              <Tile label="Ready to withdraw">
-                <div className="font-mono text-4xl font-semibold tracking-tighter tabular-nums">
-                  {wallet ? (bal === null ? "…" : usdc(bal)) : "—"} <span className="font-sans text-base font-normal tracking-normal text-muted-foreground">USDC</span>
-                </div>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {wallet ? (
-                    <>
-                      <Button onClick={withdraw} disabled={!bal || busyW} className="rounded-full">
-                        {busyW ? <Spinner /> : <ArrowDownToLine className="size-4" />}Withdraw
-                      </Button>
-                      <Button variant="outline" onClick={() => setWTo(true)} disabled={!bal} className="rounded-full">
-                        <Send className="size-4" />
-                        Elsewhere
-                      </Button>
-                    </>
-                  ) : (
-                    <Button onClick={() => openWallet(true)} className="rounded-full">
-                      <Wallet className="size-4" /> Connect
-                    </Button>
-                  )}
-                </div>
-              </Tile>
-              <Tile label="Passes sold">
-                <div className="font-mono text-4xl font-semibold tracking-tighter tabular-nums">{wallet ? intFmt(sold) : "—"}</div>
-                <p className="mt-1 text-xs text-muted-foreground">{wallet ? `${intFmt(mine.length)} listings` : ""}</p>
-              </Tile>
-              <Tile label="Lifetime revenue">
-                <div className="font-mono text-4xl font-semibold tracking-tighter tabular-nums">{wallet ? usdc(lifetime) : "—"}</div>
-                <p className="mt-1 text-xs text-muted-foreground">No fees. No owner.</p>
-              </Tile>
+          {!wallet && (
+            <div className="flex flex-col items-start gap-4 rounded-xl border p-5 sm:flex-row sm:items-center">
+              <Wallet className="size-5 shrink-0 text-muted-foreground" />
+              <p className="flex-1 text-sm text-muted-foreground">Connect a wallet to see your listings and earnings, or list something new below.</p>
+              <Button onClick={() => openWallet(true)}>Connect wallet</Button>
             </div>
+          )}
 
-            <div className="overflow-hidden rounded-xl border bg-card">
-              <div className="flex items-center justify-between border-b px-5 py-4">
-                <h2 className="font-semibold tracking-tight">Your listings</h2>
-                <Button variant="outline" size="sm" className="rounded-full" onClick={() => document.getElementById("new")?.scrollIntoView({ behavior: "smooth", block: "start" })}>
-                  <Plus className="size-4" /> New
-                </Button>
+          {selling && (
+            <>
+              <div className="rounded-xl border bg-card">
+                <dl className="grid grid-cols-3 divide-x">
+                  <div className="p-4 sm:p-5">
+                    <dt className="text-xs text-muted-foreground">To withdraw</dt>
+                    <dd className="mt-1 font-mono text-xl font-semibold tabular-nums sm:text-2xl">{bal === null ? "…" : usdc(bal)}</dd>
+                  </div>
+                  <div className="p-4 sm:p-5">
+                    <dt className="text-xs text-muted-foreground">Passes sold</dt>
+                    <dd className="mt-1 font-mono text-xl font-semibold tabular-nums sm:text-2xl">{intFmt(sold)}</dd>
+                  </div>
+                  <div className="p-4 sm:p-5">
+                    <dt className="text-xs text-muted-foreground">Revenue</dt>
+                    <dd className="mt-1 font-mono text-xl font-semibold tabular-nums sm:text-2xl">{usdc(lifetime)}</dd>
+                  </div>
+                </dl>
+                <div className="flex flex-wrap items-center gap-2 border-t px-4 py-3 sm:px-5">
+                  <span className="mr-auto text-xs text-muted-foreground">All amounts in USDC. No fees.</span>
+                  <Button size="sm" variant="outline" onClick={() => setWTo(true)} disabled={!bal}>
+                    <Send className="size-4" /> Withdraw elsewhere
+                  </Button>
+                  <Button size="sm" onClick={withdraw} disabled={!bal || busyW}>
+                    {busyW ? <Spinner /> : <ArrowDownToLine className="size-4" />} Withdraw
+                  </Button>
+                </div>
               </div>
-              {!wallet ? (
-                <Empty
-                  icon={<Wallet />}
-                  title="Connect to see your listings"
-                  action={
-                    <Button onClick={() => openWallet(true)} className="rounded-full">
-                      Connect wallet
-                    </Button>
-                  }
-                />
-              ) : mine.length === 0 ? (
-                <Empty icon={<PackageOpen />} title="No listings yet">
-                  Your first one is a single transaction.
-                </Empty>
-              ) : (
+
+              <div className="overflow-hidden rounded-xl border bg-card">
+                <div className="border-b px-5 py-4">
+                  <h2 className="font-semibold tracking-tight">Your listings</h2>
+                </div>
+                {mine.length === 0 ? (
+                  <Empty icon={<PackageOpen />} title="No listings">
+                    You moved your listings to another address. Earnings stay withdrawable.
+                  </Empty>
+                ) : (
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
@@ -430,29 +423,41 @@ export function Sell() {
                         </TableCell>
                         <TableCell className="text-right font-mono">{usdc(r.price)}</TableCell>
                         <TableCell className="hidden sm:table-cell">{duration(r.window)}</TableCell>
-                        <TableCell className="hidden text-right sm:table-cell">{intFmt(r.sales)}</TableCell>
+                        <TableCell className="hidden text-right font-mono sm:table-cell">{intFmt(r.sales)}</TableCell>
                         <TableCell className="hidden text-right font-mono md:table-cell">{usdc(r.revenue)}</TableCell>
                         <TableCell>
                           <Switch checked={r.active} disabled={toggling === r.id} onCheckedChange={() => toggle(r)} aria-label={r.active ? "Pause" : "Resume"} />
                         </TableCell>
                         <TableCell className="pr-5 text-right">
                           <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="icon" className="size-8" onClick={() => setEdit(r)} aria-label="Edit">
-                              <Pencil className="size-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="size-8" onClick={() => setXfer(r)} aria-label="Transfer">
-                              <Send className="size-4" />
-                            </Button>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="size-8" onClick={() => setEdit(r)} aria-label="Edit listing">
+                                  <Pencil className="size-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Edit</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="size-8" onClick={() => setXfer(r)} aria-label="Transfer listing">
+                                  <Send className="size-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Transfer to another seller</TooltipContent>
+                            </Tooltip>
                           </div>
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
-              )}
-            </div>
+                )}
+              </div>
+            </>
+          )}
 
-            <CreateForm />
+          <CreateForm />
         </div>
       )}
       {edit && <EditDialog r={edit} onClose={() => setEdit(null)} />}

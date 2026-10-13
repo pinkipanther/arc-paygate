@@ -87,8 +87,8 @@ export function Home() {
   const stats: [string, string][] = [
     ["Listings", ready ? intFmt(list.length) : "—"],
     ["Passes sold", ready ? intFmt(sold) : "—"],
-    ["USDC settled", ready ? usdc(settled) : "—"],
-    ["Gas per pass", gasPerPass ? `$${usdc(gasPerPass, 4)}` : "—"],
+    ["Settled (USDC)", ready ? usdc(settled) : "—"],
+    ["Gas per pass (USDC)", gasPerPass ? usdc(gasPerPass, 4) : "—"],
   ];
 
   return (
@@ -99,11 +99,17 @@ export function Home() {
           <h1 className="mt-4 text-4xl leading-tight font-semibold tracking-tight text-balance sm:text-5xl">Paywall any API. Get paid in USDC.</h1>
           <p className="mt-4 max-w-md text-muted-foreground">One transaction to buy. No approvals, no gas token, no middleman.</p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Button asChild size="lg">
-              <a href={featured ? `#/r/${featured.id}` : "#/market"}>
-                {featured ? "Try a pass" : "Browse"} <ArrowRight className="size-4" />
-              </a>
-            </Button>
+            {featured || !ready ? (
+              <Button asChild size="lg">
+                <a href={featured ? `#/r/${featured.id}` : "#/market"}>
+                  {featured ? "Try a pass" : "Browse"} <ArrowRight className="size-4" />
+                </a>
+              </Button>
+            ) : (
+              <Button size="lg" onClick={() => setNet("demo")}>
+                Try the demo <ArrowRight className="size-4" />
+              </Button>
+            )}
             <Button asChild size="lg" variant="outline">
               <a href="#/sell">List your API</a>
             </Button>
@@ -120,23 +126,19 @@ export function Home() {
               </a>
             ) : (
               <>
-                <Pass r={SAMPLE} until={0} preview />
+                <Pass r={SAMPLE} until={0} preview kicker="Example" />
                 <p className="text-sm text-muted-foreground">
-                  Live on {net.label}, nothing listed yet.{" "}
+                  Example pass. Nothing is listed on {net.label} yet:{" "}
                   <a href="#/sell" className="text-foreground underline underline-offset-4">
-                    List the first API
-                  </a>{" "}
-                  or{" "}
-                  <button type="button" onClick={() => setNet("demo")} className="text-foreground underline underline-offset-4">
-                    try the demo
-                  </button>
+                    list the first API
+                  </a>
                   .
                 </p>
               </>
             )
           ) : (
             <>
-              <Pass r={SAMPLE} until={0} preview />
+              <Pass r={SAMPLE} until={0} preview kicker="Example" />
               <NotDeployed />
             </>
           )}

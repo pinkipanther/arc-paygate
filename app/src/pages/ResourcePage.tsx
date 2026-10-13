@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { ArrowLeft, PackageX, Settings2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import { useApp } from "../lib/store";
 
 function Row({ k, children }: { k: string; children: ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-2.5 text-sm">
+    <div className="flex items-center justify-between gap-4 border-b py-2.5 text-sm">
       <dt className="text-muted-foreground">{k}</dt>
       <dd className="min-w-0 text-right">{children}</dd>
     </div>
@@ -31,6 +31,9 @@ export function ResourcePage({ id }: { id: bigint }) {
   const r = res.data;
   const held = access.until > now;
   const mine = r && sameAddr(r.seller, wallet?.address);
+  useEffect(() => {
+    document.title = `${r ? r.meta.name : `Resource #${id}`} · PayGate`;
+  }, [r, id]);
 
   const wrap = (c: ReactNode) => <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">{c}</div>;
 
@@ -72,7 +75,7 @@ export function ResourcePage({ id }: { id: bigint }) {
         <CardTitle>Details</CardTitle>
       </CardHeader>
       <CardContent>
-        <dl className="divide-y">
+        <dl className="grid gap-x-10 sm:grid-cols-2">
           <Row k="Price">
             <span className="font-mono">{usdc(r.price)} USDC</span>
           </Row>
@@ -129,56 +132,51 @@ export function ResourcePage({ id }: { id: bigint }) {
           )}
         </div>
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="min-w-0 space-y-6">
-            <Pass r={r} until={access.until} holder={wallet?.address} />
-
-          <div className="lg:hidden">
-            <BuyPanel r={r} held={held} onBought={access.reload} />
-          </div>
-
-            <Card className="rounded-xl">
-              <CardHeader>
-                <CardTitle>Use your pass</CardTitle>
-                <CardAction>
-                  <Http code={held ? 200 : 402} />
-                </CardAction>
-              </CardHeader>
-              <CardContent>
-                <UsePass r={r} held={held} />
-              </CardContent>
-            </Card>
-
-          <div className="lg:hidden">{details}</div>
-
-            <div>
-              <Card className="rounded-xl">
-                <CardHeader>
-                  <CardTitle>Integrate</CardTitle>
-                  {net.explorer && (
-                    <CardAction>
-                      <ExtLink href={`${net.explorer}/address/${net.contract}`}>Explorer</ExtLink>
-                    </CardAction>
-                  )}
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <CodeTabs
-                    tabs={[
-                      { key: "py", label: "Python", plain: pyCmd },
-                      { key: "sol", label: "Solidity", plain: solCheck },
-                      { key: "raw", label: "Raw", plain: `to:    ${net.contract}\ndata:  pay(${r.id}, ${r.window})\nvalue: ${r.price} wei\nchain: ${net.chain.id}` },
-                    ]}
-                  />
-                  {net.simulated && <p className="text-xs text-muted-foreground">Demo contract lives in this tab only.</p>}
-                </CardContent>
-              </Card>
-            </div>
+      {/* One DOM order for every width: pass, buy, use, details, integrate. On desktop the buy panel moves to the
+          right column and sticks; the last row takes the leftover height so the left cards stay evenly spaced. */}
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:grid-rows-[auto_auto_auto_1fr]">
+        <div className="min-w-0 lg:col-start-1">
+          <Pass r={r} until={access.until} holder={wallet?.address} />
         </div>
 
-        <div className="sticky top-24 hidden space-y-6 lg:block">
-            <BuyPanel r={r} held={held} onBought={access.reload} />
-          {details}
-        </div>
+        <aside className="lg:sticky lg:top-24 lg:col-start-2 lg:row-span-4 lg:row-start-1">
+          <BuyPanel r={r} held={held} onBought={access.reload} />
+        </aside>
+
+        <Card className="min-w-0 rounded-xl lg:col-start-1">
+          <CardHeader>
+            <CardTitle>Use your pass</CardTitle>
+            <CardAction>
+              <Http code={held ? 200 : 402} />
+            </CardAction>
+          </CardHeader>
+          <CardContent>
+            <UsePass r={r} held={held} />
+          </CardContent>
+        </Card>
+
+        <div className="min-w-0 lg:col-start-1">{details}</div>
+
+        <Card className="min-w-0 rounded-xl lg:col-start-1">
+          <CardHeader>
+            <CardTitle>Integrate</CardTitle>
+            {net.explorer && (
+              <CardAction>
+                <ExtLink href={`${net.explorer}/address/${net.contract}`}>Explorer</ExtLink>
+              </CardAction>
+            )}
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <CodeTabs
+              tabs={[
+                { key: "py", label: "Python", plain: pyCmd },
+                { key: "sol", label: "Solidity", plain: solCheck },
+                { key: "raw", label: "Raw", plain: `to:    ${net.contract}\ndata:  pay(${r.id}, ${r.window})\nvalue: ${r.price} wei\nchain: ${net.chain.id}` },
+              ]}
+            />
+            {net.simulated && <p className="text-xs text-muted-foreground">Demo contract lives in this tab only.</p>}
+          </CardContent>
+        </Card>
       </div>
     </>,
   );

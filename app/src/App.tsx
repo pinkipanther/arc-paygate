@@ -60,9 +60,16 @@ function route(h: string) {
   }
 }
 
+const TITLES: Record<string, string> = { "/market": "Market", "/sell": "Sell", "/activity": "Activity", "/agents": "Integrate" };
+
 export function App() {
   const h = useHash();
   const { net } = useApp();
+  useEffect(() => {
+    const path = h.replace(/^#/, "").replace(/\/$/, "");
+    if (/^\/r\/\d+$/.test(path)) return; // the resource page names itself once it loads
+    document.title = TITLES[path] ? `${TITLES[path]} · PayGate` : "PayGate";
+  }, [h]);
   return (
     <div className="flex min-h-svh flex-col">
       <Header route={h} />

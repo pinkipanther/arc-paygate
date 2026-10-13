@@ -119,9 +119,10 @@ and serves `docs/`. Every push to `main` redeploys https://arc-paygate.vercel.ap
 | Network | Chain ID | PayGate |
 |---|---|---|
 | Arc testnet | 5042002 | pending (faucet) |
-| Arc mainnet | 5042 | pending |
+| Arc mainnet | 5042 | [`0xf7Ba31bb3aAC44b43ba36Ee873C56c4b80915b4d`](https://explorer.arc.io/address/0xf7Ba31bb3aAC44b43ba36Ee873C56c4b80915b4d) (block 25704030, [deploy tx](https://explorer.arc.io/tx/0x3ad8f2496f2e41f49fa18ed5cf12cfed434d1e32a1cd9c1be3e87c2a5ca60772)) |
 
-Addresses are set in `app/.env.production` and baked into the web app at build time.
+Addresses are set in `app/.env.production` and baked into the web app at build time. The mainnet runtime bytecode matches
+`out/PayGate.sol/PayGate.json` byte for byte (5,659 bytes), i.e. the audited build.
 
 ## License
 

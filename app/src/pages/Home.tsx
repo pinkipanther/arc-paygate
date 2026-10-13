@@ -73,7 +73,7 @@ const WHY: [string, string][] = [
 ];
 
 export function Home() {
-  const { net, wallet } = useApp();
+  const { net, wallet, setNet } = useApp();
   const res = useResources();
   const chain = useChainInfo();
   const list = useMemo(() => res.data ?? [], [res.data]);
@@ -119,7 +119,20 @@ export function Home() {
                 <Pass r={featured} until={access.until} holder={wallet?.address} />
               </a>
             ) : (
-              <Pass r={SAMPLE} until={0} preview />
+              <>
+                <Pass r={SAMPLE} until={0} preview />
+                <p className="text-sm text-muted-foreground">
+                  Live on {net.label}, nothing listed yet.{" "}
+                  <a href="#/sell" className="text-foreground underline underline-offset-4">
+                    List the first API
+                  </a>{" "}
+                  or{" "}
+                  <button type="button" onClick={() => setNet("demo")} className="text-foreground underline underline-offset-4">
+                    try the demo
+                  </button>
+                  .
+                </p>
+              </>
             )
           ) : (
             <>

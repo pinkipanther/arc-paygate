@@ -49,7 +49,7 @@ function ResourceCard({ r }: { r: Resource }) {
 }
 
 export function Market() {
-  const { net } = useApp();
+  const { net, setNet } = useApp();
   const res = useResources();
   const [q, setQ] = useState("");
   const [onlyLive, setOnlyLive] = useState(true);
@@ -139,9 +139,16 @@ export function Market() {
                   icon={<PackageOpen />}
                   title="Nothing listed yet"
                   action={
-                    <Button asChild className="rounded-full">
-                      <a href="#/sell">List the first one</a>
-                    </Button>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      <Button asChild className="rounded-full">
+                        <a href="#/sell">List the first one</a>
+                      </Button>
+                      {!net.simulated && (
+                        <Button variant="outline" className="rounded-full" onClick={() => setNet("demo")}>
+                          Try the demo
+                        </Button>
+                      )}
+                    </div>
                   }
                 />
               ) : (

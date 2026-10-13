@@ -8,8 +8,8 @@ export interface Network {
   label: string;
   short: string;
   chain: Chain;
-  /** RPCs this page reads from, in order. Circle's own endpoint sits behind a bot check that
-   *  rejects some browser fetches, so a public mirror goes first. */
+  /** RPCs this page reads from, in order. Circle's endpoint serves event logs; dRPC's free tier
+   *  refuses eth_getLogs on Arc, so it is only the fallback. */
   reads: string[];
   /** RPC advertised to the wallet when it has to add the chain. */
   walletRpc: string;
@@ -57,7 +57,7 @@ export const NETWORKS: Record<NetKey, Network> = {
     label: "Arc Testnet",
     short: "Testnet",
     chain: arcTestnet,
-    reads: ["https://arc-testnet.drpc.org", "https://rpc.testnet.arc.io"],
+    reads: ["https://rpc.testnet.arc.io", "https://arc-testnet.drpc.org"],
     walletRpc: "https://rpc.testnet.arc.io",
     explorer: "https://testnet.arcscan.app",
     faucet: "https://faucet.circle.com",
@@ -69,7 +69,7 @@ export const NETWORKS: Record<NetKey, Network> = {
     label: "Arc Mainnet",
     short: "Mainnet",
     chain: arcMainnet,
-    reads: ["https://arc.drpc.org", "https://rpc.mainnet.arc.io"],
+    reads: ["https://rpc.mainnet.arc.io", "https://arc.drpc.org"],
     walletRpc: "https://rpc.mainnet.arc.io",
     explorer: "https://explorer.arc.io",
     faucet: null,

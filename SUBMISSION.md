@@ -1,12 +1,12 @@
 # Arc Microgrants submission (DoraHacks)
 
-Fill the two `<…>` fields after the mainnet deploy. Rules require a live mainnet deployment; a testnet-only build doesn't qualify.
+Deployed on Arc mainnet on 2026-10-13: contract `0xf7Ba31bb3aAC44b43ba36Ee873C56c4b80915b4d`, block 25704030, deploy tx `0x3ad8f2496f2e41f49fa18ed5cf12cfed434d1e32a1cd9c1be3e87c2a5ca60772`.
 
 **Project name:** PayGate
 
 **One-liner:** Sell API access by the hour for native USDC on Arc. Buyers, including AI agents, pay in one transaction with nothing to approve.
 
-**Live Arc mainnet deployment:** `https://explorer.arc.io/address/<PAYGATE_MAINNET_ADDRESS>`
+**Live Arc mainnet deployment:** https://explorer.arc.io/address/0xf7Ba31bb3aAC44b43ba36Ee873C56c4b80915b4d
 
 **Web app:** https://arc-paygate.vercel.app — marketplace, buy flow with a live access pass, seller console (list, reprice, pause, transfer, withdraw), on-chain activity feed and an integration guide.
 
